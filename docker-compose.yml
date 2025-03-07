@@ -1,0 +1,50 @@
+version: '3'
+
+volumes:
+  db:
+  redis_data:
+  telegram_data:  
+
+services:
+  db:
+    image: postgres:17.2
+    env_file:
+      - creds/.env
+    volumes:
+      - db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: on-failure
+
+  redis:
+    image: redis:7
+    container_name: redis_service
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: on-failure
+
+  telegram_bot_api:
+    image: aiogram/telegram-bot-api:latest
+    env_file :
+      - creds/.env
+    volumes:
+      - telegram_data:/var/lib/telegram-bot-api  
+    ports:
+      - "8081:8081"
+    depends_on:
+      - db
+    restart: on-failure
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - creds/.env
+    volumes:
+      - telegram_data:/var/lib/telegram-bot-api 
+    depends_on:
+      - telegram_bot_api
+    restart: on-failure
