@@ -7,8 +7,8 @@ from sqlalchemy import Enum as SQLEnum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
-from project_root.infrastructure.models.base import Base
-from project_root.config.constants import (
+from infrastructure.models.base import Base
+from config.constants import (
     EMAIL_LENGTH,
     MAX_DAYS_INACTIVE,
     USERNAME_LENGTH,
@@ -51,14 +51,13 @@ class User(Base):
     hired_at: Mapped[date] = mapped_column(server_default=func.current_date())
     fired_at: Mapped[Optional[date]] = mapped_column(nullable=True)
 
-    team_id: Mapped[PG_UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    team_id: Mapped[int] = mapped_column(
         ForeignKey('teams.id', ondelete='SET NULL'),
         nullable=True,
     )
 
     team = relationship('Team', back_populates='members', foreign_keys=[team_id])
-    team_lead = relationship(
+    manager = relationship(
         'Team', back_populates='team_lead', foreign_keys='Team.team_lead_id'
     )
 

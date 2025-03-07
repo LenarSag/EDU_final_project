@@ -4,10 +4,10 @@ import logging
 from fastapi import FastAPI
 import uvicorn
 
-from project_root.auth_service.db.sql_db import init_models
-from project_root.auth_service.endpoints.login import login_router
-from project_root.auth_service.endpoints.user import user_router
-from project_root.config.config import settings
+from db.sql_db import init_models
+from endpoints.login import login_router
+from endpoints.user import user_router
+from config.config import settings
 
 
 app = FastAPI()
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     )
     logger = logging.getLogger(__name__)
     uvicorn.run(
-        'project_root.auth_service.auth_main:app',
+        'auth_main:app',
         host='127.0.0.1',
         port=8000,
         reload=True,

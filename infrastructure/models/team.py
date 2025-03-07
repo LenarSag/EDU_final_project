@@ -2,8 +2,8 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
-from project_root.infrastructure.models.base import Base
-from project_root.config.constants import TEAM_NAME_LENGTH
+from infrastructure.models.base import Base
+from config.constants import TEAM_NAME_LENGTH
 
 
 class Team(Base):
@@ -23,7 +23,7 @@ class Team(Base):
 
     members = relationship('User', back_populates='team', foreign_keys='User.team_id')
     team_lead = relationship(
-        'User', back_populates='team_lead', foreign_keys=[team_lead_id]
+        'User', back_populates='manager', foreign_keys=[team_lead_id]
     )
 
     def __repr__(self):

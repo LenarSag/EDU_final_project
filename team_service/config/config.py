@@ -4,9 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    SECRET_KEY = 'b0a3f260fecdc69160d4045c276c28fe99bb78a29bf140075b4766b6931b20b0'
+    USER_JWT_SECRET_KEY = (
+        'b0a3f260fecdc69160d4045c276c28fe99bb78a29bf140075b4766b6931b20b0'
+    )
     ALGORITHM = 'HS256'
-    ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30
+    USER_ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30
 
     POSTGRES_USER: str = 'postgres'
     POSTGRES_PASSWORD: str = 'postgres'

@@ -55,3 +55,19 @@ class EmailAlreadyExistsException(HTTPException):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Email already registered',
         )
+
+
+class InvalidServiceSecretKey(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Invalid service secret key',
+        )
+
+
+class NotEnoughRights(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='You have no access',
+        )

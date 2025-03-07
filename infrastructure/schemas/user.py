@@ -4,12 +4,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from project_root.config.constants import (
+from config.constants import (
     EMAIL_LENGTH,
     USERNAME_LENGTH,
     PASSWORD_REGEX,
 )
-from project_root.infrastructure.models.user import UserPosition, UserStatus
+from infrastructure.models.user import UserPosition, UserStatus
 
 
 class UserAuthentication(BaseModel):
@@ -36,7 +36,7 @@ class UserCreate(BaseModel):
         pattern=PASSWORD_REGEX,
         description='Password (8-50 characters, must include lower-case, upper-case, digits, and special symbols).',
     )
-    team_id: Optional[UUID] = Field(None, description='Teamd id')
+    team_id: Optional[int] = Field(None, description='Teamd id')
 
 
 class UserOut(BaseModel):
@@ -47,6 +47,6 @@ class UserOut(BaseModel):
     status: UserStatus = Field(..., description='User status')
     position: UserPosition = Field(..., description='User postiion in the company')
     hired_at: date = Field(..., description='Hiring date')
-    team_id: Optional[UUID] = Field(None, description='Teamd id')
+    team_id: Optional[int] = Field(None, description='Teamd id')
 
     model_config = ConfigDict(from_attributes=True)

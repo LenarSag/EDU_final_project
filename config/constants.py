@@ -16,3 +16,7 @@ PASSWORD_REGEX = re.compile(
     r'[A-Za-z\d@$!%*?&]'
     r'{8,50}$'
 )
+
+SERVICE_SECRET_KEY_HEADER = 'X-Service-Secret-Key'
+SERVICE_AUTH_HEADER = 'X-Service-Auth'
+USER_AUTH_HEADER = 'Authorization'
