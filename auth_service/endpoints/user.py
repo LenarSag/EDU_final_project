@@ -24,18 +24,6 @@ from db.sql_db import get_session
 user_router = APIRouter()
 
 
-@user_router.get('/te')
-async def get_myself(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    redis: Annotated[Redis, Depends(get_redis)],
-):
-    current_user = await get_user_by_id(
-        session, UUID('68fc3888e72f432c9d56a7634990b3c3')
-    )
-    return current_user
-
-
 @user_router.get('/me', response_model=UserOut)
 async def get_myself(
     request: Request,
@@ -52,18 +40,18 @@ async def get_myself(
 
 @user_router.get('/{user_id}', response_model=UserOut)
 async def get_user(
-    user_id: str,
+    user_id: UUID,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
 ):
-    uuid_user_id = UUID(user_id)
+    str_user_id = str(user_id)
     user_authorization_header = request.headers.get(USER_AUTH_HEADER)
     service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
 
     if user_authorization_header:
         permission = await identify_user_and_check_role(
-            uuid_user_id,
+            user_id,
             user_authorization_header,
             [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER],
             session,
@@ -75,14 +63,14 @@ async def get_user(
         raise NotEnoughRights
 
     if permission:
-        cached_user = await get_key_from_cache('user', user_id, redis)
+        cached_user = await get_key_from_cache('user', str_user_id, redis)
         if cached_user:
             return UserOut.model_validate_json(cached_user)
 
-        user = await get_user_by_id(session, uuid_user_id)
+        user = await get_user_by_id(session, user_id)
 
         json_user = UserOut.model_validate(user).model_dump_json()
-        await set_key_to_cache('user', user_id, json_user, redis)
+        await set_key_to_cache('user', str_user_id, json_user, redis)
 
         return user
     raise NotEnoughRights
