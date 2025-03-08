@@ -1,14 +1,20 @@
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 
 from pydantic import EmailStr
+from sqlalchemy import update
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.models.team import Team
 from infrastructure.models.user import User
-from infrastructure.schemas.user import UserCreate
+from infrastructure.schemas.user import (
+    UserCreate,
+    UserEditManager,
+    UserEditSelf,
+    UserMinimal,
+)
 
 
 async def get_user_by_id(session: AsyncSession, id: UUID) -> Optional[User]:
@@ -41,6 +47,27 @@ async def get_user_full_info_by_id(session: AsyncSession, id: UUID) -> Optional[
     )
     result = await session.execute(query)
     return result.scalars().first()
+
+
+async def update_user_data(
+    session: AsyncSession,
+    user_id: UUID,
+    new_user_data: Union[UserEditSelf, UserEditManager],
+) -> Optional[User]:
+    update_data = {
+        key: val for key, val in new_user_data.model_dump().items() if val is not None
+    }
+    stmt = update(User).where(User.id == user_id).values(**update_data)
+    await session.execute(stmt)
+    await session.commit()
+
+    result = await session.execute(select(User).where(User.id == user_id))
+    return result.scalar()
+
+
+async def delete_user_from_db(session: AsyncSession, user: User) -> None:
+    await session.delete(user)
+    await session.commit()
 
 
 async def get_team(session: AsyncSession):

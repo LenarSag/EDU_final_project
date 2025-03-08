@@ -39,6 +39,19 @@ class UserCreate(BaseModel):
     team_id: Optional[int] = Field(None, description='Teamd id')
 
 
+class UserEditSelf(BaseModel):
+    first_name: Optional[str] = Field(None, description='Username')
+    last_name: Optional[str] = Field(None, description='Username')
+
+
+class UserEditManager(UserEditSelf):
+    status: Optional[UserStatus] = Field(None, description='User status')
+    position: Optional[UserPosition] = Field(
+        None, description='User postiion in the company'
+    )
+    team_id: Optional[int] = Field(None, description='Teamd id')
+
+
 class UserMinimal(BaseModel):
     id: UUID = Field(..., description='User id')
     email: EmailStr = Field(..., description='Email address')

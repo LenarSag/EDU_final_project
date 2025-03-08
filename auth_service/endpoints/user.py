@@ -6,15 +6,25 @@ from fastapi import Depends, APIRouter, Request
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service.crud.cache_repository import get_key_from_cache, set_key_to_cache
+from auth_service.crud.cache_repository import (
+    delete_key_from_cache,
+    get_key_from_cache,
+    set_key_to_cache,
+)
 from auth_service.crud.sql_repository import (
     get_team,
     get_user_by_id,
     get_user_full_info_by_id,
+    update_user_data,
 )
 from auth_service.db.redis_db import get_redis
 from auth_service.exceptions.exceptions import NotEnoughRights
-from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER, USERFULL_REDIS_KEY
+from config.constants import (
+    SERVICE_AUTH_HEADER,
+    USER_AUTH_HEADER,
+    USERFULL_REDIS_KEY,
+    USERMINIMAL_REDIS_KEY,
+)
 from infrastructure.models.user import UserPosition
 from infrastructure.schemas.team import TeamFull
 from security.identification import (
@@ -22,7 +32,7 @@ from security.identification import (
     identificate_user,
     identify_user_and_check_role,
 )
-from infrastructure.schemas.user import UserBase, UserFull
+from infrastructure.schemas.user import UserBase, UserEditSelf, UserFull, UserMinimal
 from db.sql_db import get_session
 
 
@@ -40,7 +50,7 @@ async def get_my_team(
     return team
 
 
-@user_router.get('/me', response_model=UserBase)
+@user_router.get('/me', response_model=UserMinimal)
 async def get_myself(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -49,9 +59,41 @@ async def get_myself(
     user_authorization_header = request.headers.get(USER_AUTH_HEADER)
     if not user_authorization_header:
         raise NotEnoughRights
+
     current_user = await identificate_user(user_authorization_header, session, redis)
 
     return current_user
+
+
+@user_router.patch('/me', response_model=UserMinimal)
+async def edit_myself(
+    request: Request,
+    new_user_data: UserEditSelf,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+):
+    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
+    if not user_authorization_header:
+        raise NotEnoughRights
+
+    current_user = await identificate_user(user_authorization_header, session, redis)
+
+    updated_user = await update_user_data(
+        session,
+        current_user.id,
+        new_user_data,
+    )
+    str_user_id = str(current_user.id)
+
+    await set_key_to_cache(
+        USERMINIMAL_REDIS_KEY,
+        str_user_id,
+        UserMinimal.model_validate(updated_user).model_dump_json(),
+        redis,
+    )
+    await delete_key_from_cache(USERFULL_REDIS_KEY, str_user_id, redis)
+
+    return updated_user
 
 
 @user_router.get('/{user_id}', response_model=UserFull)

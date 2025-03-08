@@ -96,9 +96,11 @@ async def identify_user_and_check_role(
     redis: Redis,
 ) -> bool:
     user = await identificate_user(user_authorization_header, session, redis)
-
-    if user.id != user_id:
-        if user.position not in roles or user.status != UserStatus.ACTIVE:
-            raise NotEnoughRights
+    if user.status != UserStatus.ACTIVE:
+        raise NotEnoughRights
+    if user.id == user_id:
+        return True
+    if roles and user.position not in roles:
+        raise NotEnoughRights
 
     return True
