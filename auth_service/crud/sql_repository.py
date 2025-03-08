@@ -35,8 +35,8 @@ async def get_user_by_id(session: AsyncSession, id: UUID) -> Optional[User]:
         select(User)
         .filter_by(id=id)
         .options(
-            selectinload(User.team),
-            selectinload(User.manager).joinedload(Team.team_lead),
+            selectinload(User.team).joinedload(Team.team_lead),
+            selectinload(User.my_team_lead),
         )
     )
     result = await session.execute(query)

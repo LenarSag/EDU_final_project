@@ -23,7 +23,7 @@ class Team(Base):
 
     members = relationship('User', back_populates='team', foreign_keys='User.team_id')
     team_lead = relationship(
-        'User', back_populates='manager', foreign_keys=[team_lead_id]
+        'User', back_populates='team_lead', foreign_keys=[team_lead_id]
     )
 
     def __repr__(self):
