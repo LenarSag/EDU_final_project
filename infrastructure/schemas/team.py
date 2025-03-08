@@ -1,0 +1,31 @@
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from config.constants import TEAM_NAME_LENGTH
+
+
+class TeamCreate(BaseModel):
+    name: str = Field(..., max_length=TEAM_NAME_LENGTH, description='Team name')
+    description: str = Field(..., description='Team description')
+
+
+class TeamBase(BaseModel):
+    id: int = Field(..., description='Team id')
+    name: str = Field(..., description='Team name')
+    description: str = Field(..., description='Team description')
+    team_lead_id: UUID = Field(..., description='Team lead id')
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TeamFull(TeamBase):
+    members: 'Optional[list[UserBase]]' = Field(None, description='Team members')
+
+    team_lead: 'Optional[UserBase]' = Field(None, description='Team lead')
+
+
+# from infrastructure.schemas.user import UserBase
+
+# TeamFull.model_rebuild()

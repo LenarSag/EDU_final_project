@@ -65,8 +65,8 @@ class User(Base):
         primaryjoin=('User.team_id == Team.id & Team.team_lead_id == User.id'),
         secondary='teams',
         foreign_keys='Team.team_lead_id',
-        # uselist=False,
-        # viewonly=True,
+        uselist=False,
+        viewonly=True,
     )
 
     def __repr__(self):
