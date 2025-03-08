@@ -21,11 +21,10 @@ class TeamBase(BaseModel):
 
 
 class TeamFull(TeamBase):
-    members: 'Optional[list[UserBase]]' = Field(None, description='Team members')
+    members: 'Optional[list[UserMinimal]]' = Field(None, description='Team members')
+    team_lead: 'Optional[UserMinimal]' = Field(None, description='Team lead')
 
-    team_lead: 'Optional[UserBase]' = Field(None, description='Team lead')
 
+from infrastructure.schemas.user import UserMinimal
 
-# from infrastructure.schemas.user import UserBase
-
-# TeamFull.model_rebuild()
+TeamFull.model_rebuild()

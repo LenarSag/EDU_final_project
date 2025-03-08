@@ -10,7 +10,6 @@ from config.constants import (
     PASSWORD_REGEX,
 )
 from infrastructure.models.user import UserPosition, UserStatus
-from infrastructure.schemas.team import TeamBase
 
 
 class UserAuthentication(BaseModel):
@@ -58,10 +57,10 @@ class UserBase(UserMinimal):
 
 
 class UserFull(UserBase):
-    team: Optional[TeamBase] = Field(None, description="User's team")
-    user_team_lead: Optional[UserMinimal] = Field(None, description="User's team lead")
+    team: 'Optional[TeamBase]' = Field(None, description="User's team")
+    my_team_lead: Optional[UserMinimal] = Field(None, description="User's team lead")
 
 
-# from infrastructure.schemas.team import TeamBase
+from infrastructure.schemas.team import TeamBase
 
-# UserFull.model_rebuild()
+UserFull.model_rebuild()

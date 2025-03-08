@@ -7,21 +7,37 @@ from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service.crud.cache_repository import get_key_from_cache, set_key_to_cache
-from auth_service.crud.sql_repository import get_user_by_id, get_user_full_info_by_id
+from auth_service.crud.sql_repository import (
+    get_team,
+    get_user_by_id,
+    get_user_full_info_by_id,
+)
 from auth_service.db.redis_db import get_redis
 from auth_service.exceptions.exceptions import NotEnoughRights
 from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER, USERFULL_REDIS_KEY
 from infrastructure.models.user import UserPosition
+from infrastructure.schemas.team import TeamFull
 from security.identification import (
     identificate_service,
     identificate_user,
     identify_user_and_check_role,
 )
-from infrastructure.schemas.user import UserBase
+from infrastructure.schemas.user import UserBase, UserFull
 from db.sql_db import get_session
 
 
 user_router = APIRouter()
+
+
+@user_router.get('/te', response_model=TeamFull)
+async def get_my_team(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+):
+    team = await get_team(session)
+
+    return team
 
 
 @user_router.get('/me', response_model=UserBase)
@@ -38,7 +54,7 @@ async def get_myself(
     return current_user
 
 
-@user_router.get('/{user_id}')
+@user_router.get('/{user_id}', response_model=UserFull)
 async def get_user_full_info(
     user_id: UUID,
     request: Request,
@@ -65,11 +81,11 @@ async def get_user_full_info(
     if permission:
         cached_user = await get_key_from_cache(USERFULL_REDIS_KEY, str_user_id, redis)
         if cached_user:
-            return UserBase.model_validate_json(cached_user)
+            return UserFull.model_validate_json(cached_user)
 
         user = await get_user_full_info_by_id(session, user_id)
 
-        json_user = UserBase.model_validate(user).model_dump_json()
+        json_user = UserFull.model_validate(user).model_dump_json()
         await set_key_to_cache(USERFULL_REDIS_KEY, str_user_id, json_user, redis)
 
         return user

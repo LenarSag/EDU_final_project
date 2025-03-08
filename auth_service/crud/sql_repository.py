@@ -2,10 +2,11 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import EmailStr
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from infrastructure.models.team import Team
 from infrastructure.models.user import User
 from infrastructure.schemas.user import UserCreate
 
@@ -38,5 +39,11 @@ async def get_user_full_info_by_id(session: AsyncSession, id: UUID) -> Optional[
             selectinload(User.my_team_lead),
         )
     )
+    result = await session.execute(query)
+    return result.scalars().first()
+
+
+async def get_team(session: AsyncSession):
+    query = select(Team).options(joinedload(Team.members))
     result = await session.execute(query)
     return result.scalars().first()
