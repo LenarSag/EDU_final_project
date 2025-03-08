@@ -8,6 +8,7 @@ from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.config import settings
+from config.constants import USERMINIMAL_REDIS_KEY
 from exceptions.exceptions import (
     InvalidTokenException,
     InvalidServiceSecretKey,
@@ -21,8 +22,8 @@ from crud.cache_repository import (
     set_key_to_cache,
 )
 from auth_service.crud.sql_repository import get_user_by_id
-from infrastructure.models.user import UserPosition
-from infrastructure.schemas.user import UserOut
+from infrastructure.models.user import UserPosition, UserStatus
+from infrastructure.schemas.user import UserMinimal
 
 
 def check_jwt(authorization_header: str, secret_key: str):
@@ -63,24 +64,26 @@ def identificate_service(
 
 async def identificate_user(
     authorization_header: str, session: AsyncSession, redis: Redis
-) -> Optional[UserOut]:
+) -> Optional[UserMinimal]:
     payload = check_jwt(authorization_header, settings.USER_JWT_SECRET_KEY)
 
     user_id = payload.get('sub')
     if user_id is None:
         raise InvalidTokenException
 
-    cached_user = await get_key_from_cache('user', user_id, redis)
+    cached_user = await get_key_from_cache(USERMINIMAL_REDIS_KEY, user_id, redis)
     if cached_user:
-        return UserOut.model_validate_json(cached_user)
+        return UserMinimal.model_validate_json(cached_user)
 
     user = await get_user_by_id(session, uuid.UUID(user_id))
     if user is None:
         raise UserNotFoundException
 
-    user_pydantic = UserOut.model_validate(user)
+    user_pydantic = UserMinimal.model_validate(user)
 
-    await set_key_to_cache('user', user_id, user_pydantic.model_dump_json(), redis)
+    await set_key_to_cache(
+        USERMINIMAL_REDIS_KEY, user_id, user_pydantic.model_dump_json(), redis
+    )
 
     return user_pydantic
 
@@ -95,7 +98,7 @@ async def identify_user_and_check_role(
     user = await identificate_user(user_authorization_header, session, redis)
 
     if user.id != user_id:
-        if user.position not in roles:
+        if user.position not in roles or user.status != UserStatus.ACTIVE:
             raise NotEnoughRights
 
     return True
