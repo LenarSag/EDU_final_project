@@ -8,7 +8,7 @@ from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.config import settings
-from config.constants import USERMINIMAL_REDIS_KEY
+from config.constants import USER_REDIS_KEY
 from exceptions.exceptions import (
     InvalidTokenException,
     InvalidServiceSecretKey,
@@ -26,7 +26,7 @@ from infrastructure.models.user import UserPosition, UserStatus
 from infrastructure.schemas.user import UserMinimal
 
 
-def check_jwt(authorization_header: str, secret_key: str):
+def check_jwt(authorization_header: str, secret_key: str) -> str:
     try:
         access_token = authorization_header.split(' ')[1]
         payload = jwt.decode(access_token, secret_key, algorithms=[settings.ALGORITHM])
@@ -45,19 +45,21 @@ def check_jwt(authorization_header: str, secret_key: str):
         raise InvalidTokenError
     if expiring_time < datetime.now(timezone.utc):
         raise TokenExpiredException
-    return payload
+
+    subject = payload.get('sub')
+    if subject is None:
+        raise InvalidTokenException
+
+    return subject
 
 
 def identificate_service(
     authorization_header: str,
 ) -> bool:
-    payload = check_jwt(authorization_header, settings.SERVICE_JWT_SECRET_KEY)
-
-    services_secret_key = payload.get('sub')
-    if (
-        services_secret_key is None
-        or services_secret_key != settings.SERVICES_COMMON_SECRET_KEY
-    ):
+    services_secret_key = check_jwt(
+        authorization_header, settings.SERVICE_JWT_SECRET_KEY
+    )
+    if services_secret_key != settings.SERVICES_COMMON_SECRET_KEY:
         raise InvalidServiceSecretKey
     return True
 
@@ -65,13 +67,9 @@ def identificate_service(
 async def identificate_user(
     authorization_header: str, session: AsyncSession, redis: Redis
 ) -> Optional[UserMinimal]:
-    payload = check_jwt(authorization_header, settings.USER_JWT_SECRET_KEY)
+    user_id = check_jwt(authorization_header, settings.USER_JWT_SECRET_KEY)
 
-    user_id = payload.get('sub')
-    if user_id is None:
-        raise InvalidTokenException
-
-    cached_user = await get_key_from_cache(USERMINIMAL_REDIS_KEY, user_id, redis)
+    cached_user = await get_key_from_cache(USER_REDIS_KEY, user_id, redis)
     if cached_user:
         return UserMinimal.model_validate_json(cached_user)
 
@@ -82,7 +80,7 @@ async def identificate_user(
     user_pydantic = UserMinimal.model_validate(user)
 
     await set_key_to_cache(
-        USERMINIMAL_REDIS_KEY, user_id, user_pydantic.model_dump_json(), redis
+        USER_REDIS_KEY, user_id, user_pydantic.model_dump_json(), redis
     )
 
     return user_pydantic

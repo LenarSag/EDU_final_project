@@ -19,7 +19,7 @@ from infrastructure.schemas.token import Token
 from infrastructure.schemas.user import (
     UserAuthentication,
     UserCreate,
-    UserMinimal,
+    UserBase,
 )
 from security.authentication import (
     authenticate_user,
@@ -33,7 +33,7 @@ login_router = APIRouter()
 
 
 @login_router.post(
-    '/user', response_model=UserMinimal, status_code=status.HTTP_201_CREATED
+    '/user', response_model=UserBase, status_code=status.HTTP_201_CREATED
 )
 async def create_user(
     user_data: UserCreate,

@@ -1,7 +1,7 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import Depends, APIRouter, Request
+from fastapi import Depends, APIRouter, Request, Body
 
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,62 +22,43 @@ from auth_service.exceptions.exceptions import NotEnoughRights
 from config.constants import (
     SERVICE_AUTH_HEADER,
     USER_AUTH_HEADER,
-    USERFULL_REDIS_KEY,
-    USERMINIMAL_REDIS_KEY,
+    USER_REDIS_KEY,
 )
 from infrastructure.models.user import UserPosition
 from infrastructure.schemas.team import TeamFull
+from permissions.rbac import requeire_position_authentication, require_authentication
 from security.identification import (
     identificate_service,
     identificate_user,
     identify_user_and_check_role,
 )
-from infrastructure.schemas.user import UserBase, UserEditSelf, UserFull, UserMinimal
+from infrastructure.schemas.user import UserMinimal, UserEditSelf, UserFull
 from db.sql_db import get_session
 
 
 user_router = APIRouter()
 
 
-@user_router.get('/te', response_model=TeamFull)
-async def get_my_team(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    redis: Annotated[Redis, Depends(get_redis)],
-):
-    team = await get_team(session)
-
-    return team
-
-
 @user_router.get('/me', response_model=UserMinimal)
+@require_authentication
 async def get_myself(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
+    current_user=None,
 ):
-    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-    if not user_authorization_header:
-        raise NotEnoughRights
-
-    current_user = await identificate_user(user_authorization_header, session, redis)
-
     return current_user
 
 
 @user_router.patch('/me', response_model=UserMinimal)
+@require_authentication
 async def edit_myself(
     request: Request,
-    new_user_data: UserEditSelf,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
+    new_user_data: UserEditSelf,
+    current_user=None,
 ):
-    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-    if not user_authorization_header:
-        raise NotEnoughRights
-
-    current_user = await identificate_user(user_authorization_header, session, redis)
-
     updated_user = await update_user_data(
         session,
         current_user.id,
@@ -86,18 +67,59 @@ async def edit_myself(
     str_user_id = str(current_user.id)
 
     await set_key_to_cache(
-        USERMINIMAL_REDIS_KEY,
+        USER_REDIS_KEY,
         str_user_id,
         UserMinimal.model_validate(updated_user).model_dump_json(),
         redis,
     )
-    await delete_key_from_cache(USERFULL_REDIS_KEY, str_user_id, redis)
 
     return updated_user
 
 
 @user_router.get('/{user_id}', response_model=UserFull)
+@requeire_position_authentication(
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
+)
 async def get_user_full_info(
+    user_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+):
+    user = await get_user_full_info_by_id(session, user_id)
+    return user
+
+
+@user_router.patch('/{user_id}', response_model=UserFull)
+async def edit_user_info(
+    user_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+):
+    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
+    service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
+
+    if user_authorization_header:
+        permission = await identify_user_and_check_role(
+            user_id,
+            user_authorization_header,
+            [UserPosition.ADMIN, UserPosition.CEO],
+            session,
+            redis,
+        )
+    elif service_authorization_header:
+        permission = identificate_service(service_authorization_header)
+    else:
+        raise NotEnoughRights
+
+    if permission:
+        user_to_edit = await get_user_by_id(session, user_id)
+    raise NotEnoughRights
+
+
+@user_router.delete('/{user_id}', response_model=UserFull)
+async def delete_user(
     user_id: UUID,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -111,7 +133,7 @@ async def get_user_full_info(
         permission = await identify_user_and_check_role(
             user_id,
             user_authorization_header,
-            [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER],
+            [UserPosition.ADMIN, UserPosition.CEO],
             session,
             redis,
         )
@@ -121,14 +143,5 @@ async def get_user_full_info(
         raise NotEnoughRights
 
     if permission:
-        cached_user = await get_key_from_cache(USERFULL_REDIS_KEY, str_user_id, redis)
-        if cached_user:
-            return UserFull.model_validate_json(cached_user)
-
-        user = await get_user_full_info_by_id(session, user_id)
-
-        json_user = UserFull.model_validate(user).model_dump_json()
-        await set_key_to_cache(USERFULL_REDIS_KEY, str_user_id, json_user, redis)
-
-        return user
+        user_to_edit = await get_user_by_id(session, user_id)
     raise NotEnoughRights

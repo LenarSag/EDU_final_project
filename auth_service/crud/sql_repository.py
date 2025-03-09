@@ -2,7 +2,7 @@ from typing import Optional, Union
 from uuid import UUID
 
 from pydantic import EmailStr
-from sqlalchemy import update
+from sqlalchemy import update, delete
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from infrastructure.schemas.user import (
     UserCreate,
     UserEditManager,
     UserEditSelf,
-    UserMinimal,
+    UserBase,
 )
 
 
@@ -46,7 +46,7 @@ async def get_user_full_info_by_id(session: AsyncSession, id: UUID) -> Optional[
         )
     )
     result = await session.execute(query)
-    return result.scalars().first()
+    return result.scalar()
 
 
 async def update_user_data(
@@ -65,9 +65,11 @@ async def update_user_data(
     return result.scalar()
 
 
-async def delete_user_from_db(session: AsyncSession, user: User) -> None:
-    await session.delete(user)
+async def delete_user_from_db(session: AsyncSession, user_id: UUID) -> int:
+    result = await session.execute(delete(User).where(User.id == user_id))
+    deleted_rows = result.rowcount
     await session.commit()
+    return deleted_rows
 
 
 async def get_team(session: AsyncSession):

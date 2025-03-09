@@ -22,5 +22,4 @@ SERVICE_AUTH_HEADER = 'X-Service-Auth'
 USER_AUTH_HEADER = 'Authorization'
 
 
-USERMINIMAL_REDIS_KEY = 'user_min'
-USERFULL_REDIS_KEY = 'user_full'
+USER_REDIS_KEY = 'user'

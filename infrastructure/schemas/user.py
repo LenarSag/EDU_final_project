@@ -59,6 +59,7 @@ class UserMinimal(BaseModel):
     last_name: str = Field(..., description='Username')
     status: UserStatus = Field(..., description='User status')
     position: UserPosition = Field(..., description='User postiion in the company')
+    team_id: Optional[int] = Field(None, description='Teamd id')
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,7 +67,6 @@ class UserMinimal(BaseModel):
 class UserBase(UserMinimal):
     hired_at: date = Field(..., description='Hiring date')
     fired_at: Optional[date] = Field(..., description='Firing date')
-    team_id: Optional[int] = Field(None, description='Teamd id')
 
 
 class UserFull(UserBase):
