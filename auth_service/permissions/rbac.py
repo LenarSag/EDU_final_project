@@ -13,7 +13,7 @@ from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER
 from infrastructure.models.user import UserStatus
 
 
-def requeire_position_authentication(position: list):
+def require_position_authentication(position: list):
     def decorator(func):
         @wraps(func)
         async def wrapper(
@@ -21,6 +21,7 @@ def requeire_position_authentication(position: list):
             request: Request,
             session: AsyncSession = Depends(get_session),
             redis: Redis = Depends(get_redis),
+            new_user_data=None,
         ):
             user_authorization_header = request.headers.get(USER_AUTH_HEADER)
             service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
@@ -45,8 +46,9 @@ def requeire_position_authentication(position: list):
                 raise NotEnoughRights
 
             args_list = [user_id, request, session, redis]
-            args = tuple(args_list)
-            return await func(*args)
+            if new_user_data:
+                args_list.append(new_user_data)
+            return await func(*args_list)
 
         return wrapper
 
@@ -74,8 +76,7 @@ def require_authentication(func):
         if new_user_data:
             args_list.append(new_user_data)
         args_list.append(current_user)
-        args = tuple(args_list)
 
-        return await func(*args)
+        return await func(*args_list)
 
     return wrapper

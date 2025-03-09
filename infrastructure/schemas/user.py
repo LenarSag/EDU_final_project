@@ -45,6 +45,7 @@ class UserEditSelf(BaseModel):
 
 
 class UserEditManager(UserEditSelf):
+    email: Optional[EmailStr] = Field(None, description='Email address')
     status: Optional[UserStatus] = Field(None, description='User status')
     position: Optional[UserPosition] = Field(
         None, description='User postiion in the company'
