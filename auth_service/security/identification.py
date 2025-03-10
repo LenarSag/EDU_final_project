@@ -9,20 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.config import settings
 from config.constants import USER_REDIS_KEY
-from exceptions.exceptions import (
+from infrastructure.exceptions.exceptions import (
     InvalidTokenException,
     InvalidServiceSecretKeyException,
-    NotEnoughRightsException,
     TokenExpiredException,
     TokenNotFoundException,
     UserNotFoundException,
 )
-from crud.cache_repository import (
+from auth_service.crud.cache_repository import (
     get_key_from_cache,
     set_key_to_cache,
 )
 from auth_service.crud.sql_repository import get_user_by_id
-from infrastructure.models.user import UserPosition, UserStatus
 from infrastructure.schemas.user import UserMinimal
 
 
@@ -84,21 +82,3 @@ async def identificate_user(
     )
 
     return user_pydantic
-
-
-async def identify_user_and_check_role(
-    user_id: uuid.UUID,
-    user_authorization_header: str,
-    roles: list[UserPosition],
-    session: AsyncSession,
-    redis: Redis,
-) -> bool:
-    user = await identificate_user(user_authorization_header, session, redis)
-    if user.status != UserStatus.ACTIVE:
-        raise NotEnoughRightsException
-    if user.id == user_id:
-        return True
-    if roles and user.position not in roles:
-        raise NotEnoughRightsException
-
-    return True

@@ -3,7 +3,7 @@ from typing import Optional, Union
 from uuid import UUID
 
 from pydantic import EmailStr
-from sqlalchemy import func, update, delete
+from sqlalchemy import update, delete
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession

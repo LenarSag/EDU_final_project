@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.config import settings
 from infrastructure.models.user import User
 from auth_service.crud.sql_repository import get_user_by_email
-from security.pwd_crypt import verify_password
+from auth_service.security.pwd_crypt import verify_password
 
 
 async def authenticate_user(

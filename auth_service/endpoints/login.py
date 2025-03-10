@@ -10,7 +10,7 @@ from auth_service.crud.sql_repository import (
     get_user_by_email,
 )
 from infrastructure.db.sql_db import get_session
-from exceptions.exceptions import (
+from infrastructure.exceptions.exceptions import (
     EmailAlreadyExistsException,
     IncorrectEmailOrPasswordException,
     InvalidServiceSecretKeyException,
@@ -21,12 +21,12 @@ from infrastructure.schemas.user import (
     UserCreate,
     UserBase,
 )
-from security.authentication import (
+from auth_service.security.authentication import (
     authenticate_user,
     create_access_token_for_user,
     create_internal_access_token,
 )
-from security.pwd_crypt import get_hashed_password
+from auth_service.security.pwd_crypt import get_hashed_password
 
 
 login_router = APIRouter()

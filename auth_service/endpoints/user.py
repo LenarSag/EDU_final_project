@@ -19,8 +19,12 @@ from auth_service.crud.sql_repository import (
     rehire_user_db,
     update_user_data,
 )
+from auth_service.permissions.rbac import (
+    require_position_authentication,
+    require_authentication,
+)
 from infrastructure.db.redis_db import get_redis
-from auth_service.exceptions.exceptions import (
+from infrastructure.exceptions.exceptions import (
     AlreadyFiredException,
     EmailAlreadyExistsException,
     NotAllowedToDeleteException,
@@ -32,7 +36,7 @@ from auth_service.exceptions.exceptions import (
 )
 from config.constants import DAYS_TILL_DELETE, USER_REDIS_KEY
 from infrastructure.models.user import UserPosition, UserStatus
-from permissions.rbac import require_position_authentication, require_authentication
+
 from infrastructure.schemas.user import (
     UserEditManager,
     UserMinimal,

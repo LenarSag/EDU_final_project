@@ -5,10 +5,10 @@ from fastapi import Depends, Request
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_service.security.identification import identificate_service, identificate_user
 from infrastructure.db.redis_db import get_redis
 from infrastructure.db.sql_db import get_session
-from auth_service.exceptions.exceptions import NotEnoughRightsException
-from auth_service.security.identification import identificate_service, identificate_user
+from infrastructure.exceptions.exceptions import NotEnoughRightsException
 from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER
 from infrastructure.models.user import UserStatus
 
