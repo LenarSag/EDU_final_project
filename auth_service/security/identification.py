@@ -11,8 +11,8 @@ from config.config import settings
 from config.constants import USER_REDIS_KEY
 from exceptions.exceptions import (
     InvalidTokenException,
-    InvalidServiceSecretKey,
-    NotEnoughRights,
+    InvalidServiceSecretKeyException,
+    NotEnoughRightsException,
     TokenExpiredException,
     TokenNotFoundException,
     UserNotFoundException,
@@ -60,7 +60,7 @@ def identificate_service(
         authorization_header, settings.SERVICE_JWT_SECRET_KEY
     )
     if services_secret_key != settings.SERVICES_COMMON_SECRET_KEY:
-        raise InvalidServiceSecretKey
+        raise InvalidServiceSecretKeyException
     return True
 
 
@@ -95,10 +95,10 @@ async def identify_user_and_check_role(
 ) -> bool:
     user = await identificate_user(user_authorization_header, session, redis)
     if user.status != UserStatus.ACTIVE:
-        raise NotEnoughRights
+        raise NotEnoughRightsException
     if user.id == user_id:
         return True
     if roles and user.position not in roles:
-        raise NotEnoughRights
+        raise NotEnoughRightsException
 
     return True

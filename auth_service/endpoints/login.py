@@ -9,11 +9,11 @@ from auth_service.crud.sql_repository import (
     create_new_user,
     get_user_by_email,
 )
-from db.sql_db import get_session
+from infrastructure.db.sql_db import get_session
 from exceptions.exceptions import (
     EmailAlreadyExistsException,
     IncorrectEmailOrPasswordException,
-    InvalidServiceSecretKey,
+    InvalidServiceSecretKeyException,
 )
 from infrastructure.schemas.token import Token
 from infrastructure.schemas.user import (
@@ -71,7 +71,7 @@ async def service_login_for_access_token(
         not authorization_header
         or authorization_header != settings.SERVICES_COMMON_SECRET_KEY
     ):
-        raise InvalidServiceSecretKey
+        raise InvalidServiceSecretKeyException
 
     access_token = create_internal_access_token()
     return Token(access_token=access_token, token_type='Bearer')

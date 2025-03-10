@@ -5,15 +5,15 @@ from fastapi import Depends, Request
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service.db.redis_db import get_redis
-from auth_service.db.sql_db import get_session
-from auth_service.exceptions.exceptions import NotEnoughRights
+from infrastructure.db.redis_db import get_redis
+from infrastructure.db.sql_db import get_session
+from auth_service.exceptions.exceptions import NotEnoughRightsException
 from auth_service.security.identification import identificate_service, identificate_user
 from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER
 from infrastructure.models.user import UserStatus
 
 
-def require_position_authentication(position: list):
+def require_position_authentication(position: list, editing: bool = False):
     def decorator(func):
         @wraps(func)
         async def wrapper(
@@ -31,19 +31,23 @@ def require_position_authentication(position: list):
                     user_authorization_header, session, redis
                 )
 
-                if current_user.status != UserStatus.ACTIVE or (
-                    current_user.id != user_id
-                    and position
-                    and current_user.position not in position
-                ):
-                    raise NotEnoughRights
+                if current_user.status != UserStatus.ACTIVE:
+                    raise NotEnoughRightsException
+                if editing:
+                    if position and current_user.position not in position:
+                        raise NotEnoughRightsException
+                else:
+                    if current_user.id != user_id and (
+                        position and current_user.position not in position
+                    ):
+                        raise NotEnoughRightsException
 
             elif service_authorization_header:
                 permission = identificate_service(service_authorization_header)
                 if not permission:
-                    raise NotEnoughRights
+                    raise NotEnoughRightsException
             else:
-                raise NotEnoughRights
+                raise NotEnoughRightsException
 
             args_list = [user_id, request, session, redis]
             if new_user_data:
@@ -66,7 +70,7 @@ def require_authentication(func):
     ):
         user_authorization_header = request.headers.get(USER_AUTH_HEADER)
         if not user_authorization_header:
-            raise NotEnoughRights
+            raise NotEnoughRightsException
 
         current_user = await identificate_user(
             user_authorization_header, session, redis

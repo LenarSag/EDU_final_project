@@ -57,7 +57,7 @@ class EmailAlreadyExistsException(HTTPException):
         )
 
 
-class InvalidServiceSecretKey(HTTPException):
+class InvalidServiceSecretKeyException(HTTPException):
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -65,9 +65,57 @@ class InvalidServiceSecretKey(HTTPException):
         )
 
 
-class NotEnoughRights(HTTPException):
+class NotEnoughRightsException(HTTPException):
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='You have no access',
+        )
+
+
+class NotFoundException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Not found',
+        )
+
+
+class NotAllowedToDeleteException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Too early to delete after firing',
+        )
+
+
+class NotFiredToRehireException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='User was not fired',
+        )
+
+
+class NotAllowedToRehireException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='User cannot be rehired because the maximum rehire period has expired.',
+        )
+
+
+class NotAllowedToFireException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='CEO and admins can"t be fired.',
+        )
+
+
+class AlreadyFiredException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='User already fired.',
         )

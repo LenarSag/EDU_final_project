@@ -60,7 +60,7 @@ class User(Base):
     team_lead = relationship(
         'Team', back_populates='team_lead', foreign_keys='Team.team_lead_id'
     )
-    my_team_lead = relationship(
+    user_team_lead = relationship(
         'User',
         primaryjoin=('User.team_id == Team.id & Team.team_lead_id == User.id'),
         secondary='teams',

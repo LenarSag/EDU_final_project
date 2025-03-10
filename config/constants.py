@@ -23,3 +23,5 @@ USER_AUTH_HEADER = 'Authorization'
 
 
 USER_REDIS_KEY = 'user'
+
+DAYS_TILL_DELETE = 30

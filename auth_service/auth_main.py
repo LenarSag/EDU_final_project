@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI
 import uvicorn
 
-from db.sql_db import init_models
+from infrastructure.db.sql_db import init_models
 from endpoints.login import login_router
 from endpoints.user import user_router
 from config.config import settings
