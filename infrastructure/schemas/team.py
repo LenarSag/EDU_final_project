@@ -8,14 +8,27 @@ from config.constants import TEAM_NAME_LENGTH
 
 class TeamCreate(BaseModel):
     name: str = Field(..., max_length=TEAM_NAME_LENGTH, description='Team name')
-    description: str = Field(..., description='Team description')
+    description: Optional[str] = Field(None, description='Team description')
+    team_lead_id: UUID = Field(..., description='Team lead id')
+
+    members: Optional[list[UUID]] = Field(None, description='Team members')
+
+
+class TeamEdit(BaseModel):
+    name: Optional[str] = Field(
+        ..., max_length=TEAM_NAME_LENGTH, description='Team name'
+    )
+    description: Optional[str] = Field(None, description='Team description')
+    team_lead_id: Optional[UUID] = Field(None, description='Team lead id')
+
+    members: Optional[list[UUID]] = Field(None, description='Team members')
 
 
 class TeamBase(BaseModel):
     id: int = Field(..., description='Team id')
     name: str = Field(..., description='Team name')
     description: str = Field(..., description='Team description')
-    team_lead_id: UUID = Field(..., description='Team lead id')
+    team_lead_id: Optional[UUID] = Field(None, description='Team lead id')
 
     model_config = ConfigDict(from_attributes=True)
 

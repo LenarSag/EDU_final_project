@@ -119,3 +119,51 @@ class AlreadyFiredException(HTTPException):
             status_code=status.HTTP_403_FORBIDDEN,
             detail='User already fired.',
         )
+
+
+class TeamAlreadyExistsException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Team name already registered',
+        )
+
+
+class TeamLeadNotFoundException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='User with such id for teamlead postion not found',
+        )
+
+
+class UserAlreadyTeamLeadException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="User already teamlead, can't manage more than 1 team",
+        )
+
+
+class NoManagerTeamLeadException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Only manager can be teamlead',
+        )
+
+
+class TeamMembersNotFoundException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Team members not found',
+        )
+
+
+class UserAlreadyInTeamException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='User already member of other team',
+        )

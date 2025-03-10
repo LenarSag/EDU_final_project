@@ -22,6 +22,7 @@ class UserStatus(PyEnum):
 
 
 class UserPosition(PyEnum):
+    NONE = 'None'
     ADMIN = 'Admin'
     JUNIOR = 'Junior'
     DEVELOPER = 'Developer'

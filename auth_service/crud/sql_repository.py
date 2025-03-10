@@ -1,7 +1,9 @@
 from datetime import date
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 from uuid import UUID
 
+from fastapi_pagination import Params
+from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import EmailStr
 from sqlalchemy import update, delete
 from sqlalchemy.orm import selectinload, joinedload
@@ -9,7 +11,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.models.team import Team
-from infrastructure.models.user import User, UserStatus
+from infrastructure.models.user import User, UserPosition, UserStatus
 from infrastructure.schemas.user import (
     UserCreate,
     UserEditManager,
@@ -21,6 +23,11 @@ async def get_user_by_id(session: AsyncSession, id: UUID) -> Optional[User]:
     query = select(User).filter_by(id=id)
     result = await session.execute(query)
     return result.scalar()
+
+
+async def get_all_users_db(session: AsyncSession, params: Params) -> Sequence[User]:
+    query = select(User)
+    return await paginate(session, query, params)
 
 
 async def get_user_by_email(session: AsyncSession, email: EmailStr) -> Optional[User]:
@@ -78,6 +85,7 @@ async def rehire_user_db(session: AsyncSession, user_to_rehire: User) -> User:
 
 async def fire_user_db(session: AsyncSession, user_to_fire: User) -> User:
     user_to_fire.status = UserStatus.FIRED
+    user_to_fire.position = UserPosition.NONE
     user_to_fire.fired_at = date.today()
     await session.commit()
     await session.refresh(user_to_fire)

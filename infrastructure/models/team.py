@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
@@ -19,12 +19,15 @@ class Team(Base):
         PG_UUID(as_uuid=True),
         ForeignKey('users.id', ondelete='SET NULL'),
         nullable=True,
+        unique=True,
     )
 
     members = relationship('User', back_populates='team', foreign_keys='User.team_id')
     team_lead = relationship(
         'User', back_populates='team_lead', foreign_keys=[team_lead_id]
     )
+
+    __table_args__ = (UniqueConstraint('team_lead_id', name='uq_team_lead'),)
 
     def __repr__(self):
         return f'<Team {self.name}>'

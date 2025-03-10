@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     API_URL: str = '/api/v1'
 
+    AUTH_SERVICE: str = '127.0.0.1:8000'
+    INFRASTRUCTURE_SERVICE: str = '127.0.0.1:8001'
+    TEAM_SERVICE: str = '127.0.0.1:8002'
+
     @property
     def db_url(self):
         return f'postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.POSTGRES_DB}'

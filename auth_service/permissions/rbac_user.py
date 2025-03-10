@@ -2,6 +2,7 @@ from functools import wraps
 from uuid import UUID
 
 from fastapi import Depends, Request
+from fastapi_pagination import Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +14,7 @@ from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER
 from infrastructure.models.user import UserStatus
 
 
-def require_position_authentication(position: list, editing: bool = False):
+def require_position_authentication(positions: list):
     def decorator(func):
         @wraps(func)
         async def wrapper(
@@ -33,14 +34,8 @@ def require_position_authentication(position: list, editing: bool = False):
 
                 if current_user.status != UserStatus.ACTIVE:
                     raise NotEnoughRightsException
-                if editing:
-                    if position and current_user.position not in position:
-                        raise NotEnoughRightsException
-                else:
-                    if current_user.id != user_id and (
-                        position and current_user.position not in position
-                    ):
-                        raise NotEnoughRightsException
+                if positions and current_user.position not in positions:
+                    raise NotEnoughRightsException
 
             elif service_authorization_header:
                 permission = identificate_service(service_authorization_header)
@@ -65,6 +60,41 @@ def require_authentication(func):
         request: Request,
         session: AsyncSession = Depends(get_session),
         redis: Redis = Depends(get_redis),
+        params=None,
+        user_id=None,
+    ):
+        user_authorization_header = request.headers.get(USER_AUTH_HEADER)
+        service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
+
+        if user_authorization_header:
+            await identificate_user(user_authorization_header, session, redis)
+
+        elif service_authorization_header:
+            permission = identificate_service(service_authorization_header)
+            if not permission:
+                raise NotEnoughRightsException
+
+        else:
+            raise NotEnoughRightsException
+
+        args_list = [request, session, redis]
+
+        if params:
+            args_list.append(params)
+        if user_id:
+            args_list.append(user_id)
+
+        return await func(*args_list)
+
+    return wrapper
+
+
+def require_user_authentication(func):
+    @wraps(func)
+    async def wrapper(
+        request: Request,
+        session: AsyncSession = Depends(get_session),
+        redis: Redis = Depends(get_redis),
         new_user_data=None,
         current_user=None,
     ):
@@ -77,6 +107,7 @@ def require_authentication(func):
         )
 
         args_list = [request, session, redis]
+
         if new_user_data:
             args_list.append(new_user_data)
         args_list.append(current_user)

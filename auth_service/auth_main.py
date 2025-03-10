@@ -1,12 +1,8 @@
-import asyncio
-import logging
-
 from fastapi import FastAPI
 import uvicorn
 
-from infrastructure.db.sql_db import init_models
-from endpoints.login import login_router
-from endpoints.user import user_router
+from auth_service.endpoints.login import login_router
+from auth_service.endpoints.user import user_router
 from config.config import settings
 
 
@@ -17,16 +13,7 @@ app.include_router(login_router, prefix=f'{settings.API_URL}/auth')
 app.include_router(user_router, prefix=f'{settings.API_URL}/users')
 
 
-async def startup_event():
-    await init_models()
-
-
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    )
-    logger = logging.getLogger(__name__)
     uvicorn.run(
         'auth_main:app',
         host='127.0.0.1',

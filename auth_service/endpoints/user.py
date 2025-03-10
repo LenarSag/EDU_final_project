@@ -3,6 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, APIRouter, Request, status
+from fastapi_pagination import Page, Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,15 +14,17 @@ from auth_service.crud.cache_repository import (
 from auth_service.crud.sql_repository import (
     delete_user_by_object,
     fire_user_db,
+    get_all_users_db,
     get_user_by_email,
     get_user_by_id,
     get_user_full_info_by_id,
     rehire_user_db,
     update_user_data,
 )
-from auth_service.permissions.rbac import (
+from auth_service.permissions.rbac_user import (
     require_position_authentication,
     require_authentication,
+    require_user_authentication,
 )
 from infrastructure.db.redis_db import get_redis
 from infrastructure.exceptions.exceptions import (
@@ -49,8 +52,20 @@ from infrastructure.db.sql_db import get_session
 user_router = APIRouter()
 
 
-@user_router.get('/me', response_model=UserMinimal)
+@user_router.get('/', response_model=Page[UserMinimal])
 @require_authentication
+async def get_all_users(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    params: Annotated[Params, Depends()],
+):
+    users = await get_all_users_db(session, params)
+    return users
+
+
+@user_router.get('/me', response_model=UserMinimal)
+@require_user_authentication
 async def get_myself(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -61,7 +76,7 @@ async def get_myself(
 
 
 @user_router.patch('/me', response_model=UserMinimal)
-@require_authentication
+@require_user_authentication
 async def edit_myself(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -86,9 +101,9 @@ async def edit_myself(
     return updated_user
 
 
-@user_router.post('/rehire/{user_id}', response_model=UserMinimal)
+@user_router.post('/{user_id}/rehire', response_model=UserMinimal)
 @require_position_authentication(
-    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER], editing=True
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
 )
 async def rehire_user(
     user_id: UUID,
@@ -116,9 +131,9 @@ async def rehire_user(
     return user_pydantic
 
 
-@user_router.post('/fire/{user_id}', response_model=UserMinimal)
+@user_router.post('/{user_id}/fire', response_model=UserMinimal)
 @require_position_authentication(
-    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER], editing=True
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
 )
 async def fire_user(
     user_id: UUID,
@@ -147,14 +162,12 @@ async def fire_user(
 
 
 @user_router.get('/{user_id}', response_model=UserFull)
-@require_position_authentication(
-    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
-)
+@require_authentication
 async def get_user_full_info(
-    user_id: UUID,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
+    user_id: UUID,
 ):
     user = await get_user_full_info_by_id(session, user_id)
     if user is None:
@@ -164,7 +177,7 @@ async def get_user_full_info(
 
 @user_router.patch('/{user_id}', response_model=UserMinimal)
 @require_position_authentication(
-    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER], editing=True
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
 )
 async def edit_user_info(
     user_id: UUID,
@@ -194,7 +207,7 @@ async def edit_user_info(
 
 
 @user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT)
-@require_position_authentication([UserPosition.ADMIN, UserPosition.CEO], editing=True)
+@require_position_authentication([UserPosition.ADMIN, UserPosition.CEO])
 async def delete_user(
     user_id: UUID,
     request: Request,
