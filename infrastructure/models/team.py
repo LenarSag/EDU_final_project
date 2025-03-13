@@ -30,4 +30,4 @@ class Team(Base):
     __table_args__ = (UniqueConstraint('team_lead_id', name='uq_team_lead'),)
 
     def __repr__(self):
-        return f'<Team {self.name}>'
+        return f'<Team: {self.name}, description:{self.description}, team lead id: {self.team_lead_id}>'

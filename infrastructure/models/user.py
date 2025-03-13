@@ -69,9 +69,21 @@ class User(Base):
         uselist=False,
         viewonly=True,
     )
+    gotten_tasks = relationship(
+        'Task', back_populates='task_employee', foreign_keys='Task.employee_id'
+    )
+    assigned_tasks = relationship(
+        'Task', back_populates='task_manager', foreign_keys='Task.manager_id'
+    )
+
+    meetings = relationship(
+        'Meeting', secondary='user_meeting_table', back_populates='participants'
+    )
+    created_events = relationship('CalendarEvent', back_populates='event_creator')
+    created_meetings = relationship('Meeting', back_populates='meeting_creator')
 
     def __repr__(self):
-        return f'<User {self.id} - {self.email}>'
+        return f'<User {self.id} - {self.email}, {self.first_name} {self.last_name}>'
 
     @property
     def is_rehirable(self):

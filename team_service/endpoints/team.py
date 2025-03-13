@@ -1,6 +1,4 @@
-from datetime import date, timedelta
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import Depends, APIRouter, Request, status
 from fastapi_pagination import Page, Params
@@ -8,15 +6,17 @@ from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.schemas.team import TeamBase, TeamCreate, TeamEdit, TeamFull
-
 from team_service.crud.sql_repository import (
     create_team,
+    delete_team_from_db,
     get_all_teams_db,
+    get_team_by_id,
     get_team_by_name,
     get_team_by_team_lead_id,
     get_team_full_info_by_id,
     get_user_by_id,
     get_users_by_ids,
+    update_team,
 )
 from team_service.permissions.rbac_team import (
     require_position_authentication,
@@ -24,30 +24,16 @@ from team_service.permissions.rbac_team import (
 )
 from infrastructure.db.redis_db import get_redis
 from infrastructure.exceptions.exceptions import (
-    AlreadyFiredException,
-    EmailAlreadyExistsException,
     NoManagerTeamLeadException,
-    NotAllowedToDeleteException,
-    NotAllowedToFireException,
-    NotAllowedToRehireException,
-    NotFiredToRehireException,
     NotFoundException,
     TeamAlreadyExistsException,
     TeamLeadNotFoundException,
     TeamMembersNotFoundException,
+    TeamMembersNotUniqueException,
     UserAlreadyInTeamException,
     UserAlreadyTeamLeadException,
-    UserNotFoundException,
 )
-from config.constants import DAYS_TILL_DELETE, USER_REDIS_KEY
 from infrastructure.models.user import UserPosition, UserStatus
-
-from infrastructure.schemas.user import (
-    UserEditManager,
-    UserMinimal,
-    UserEditSelf,
-    UserFull,
-)
 from infrastructure.db.sql_db import get_session
 
 
@@ -66,7 +52,7 @@ async def get_all_teams(
     return teams
 
 
-@team_router.post('/', response_model=TeamFull)
+@team_router.post('/', response_model=TeamFull, status_code=status.HTTP_201_CREATED)
 @require_position_authentication(
     [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
 )
@@ -94,14 +80,16 @@ async def create_new_team(
         raise UserAlreadyTeamLeadException
 
     if new_team_data.members:
-        users = await get_users_by_ids(session, new_team_data.members)
-        if len(new_team_data.members) != len(users):
+        if len(new_team_data.members) != len(set(new_team_data.members)):
+            raise TeamMembersNotUniqueException
+        members = await get_users_by_ids(session, new_team_data.members)
+        if len(new_team_data.members) != len(members):
             raise TeamMembersNotFoundException
-        for user in users:
+        for user in members:
             if user.team_id:
                 raise UserAlreadyInTeamException
 
-    new_team = await create_team(session, new_team_data, users)
+    new_team = await create_team(session, new_team_data, members)
     return new_team
 
 
@@ -119,7 +107,7 @@ async def get_team_full_info(
     return team
 
 
-@team_router.patch('/{team_id}', response_model=TeamBase)
+@team_router.patch('/{team_id}', response_model=TeamFull)
 @require_position_authentication(
     [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
 )
@@ -130,79 +118,54 @@ async def edit_team(
     team_id: int,
     new_team_data: TeamEdit,
 ):
-    team = await get_team_by_name(session, new_team_data.name)
-    if team:
+    team_to_update = await get_team_full_info_by_id(session, team_id)
+    if team_to_update is None:
+        raise NotFoundException
+
+    team_unique_name = await get_team_by_name(session, new_team_data.name)
+    if team_unique_name and team_unique_name.id != team_id:
         raise TeamAlreadyExistsException
-    new_team = await create_team(session, new_team_data)
-    return new_team
+
+    if new_team_data.team_lead_id:
+        team_lead_user = await get_user_by_id(session, new_team_data.team_lead_id)
+
+        if team_lead_user is None:
+            raise TeamLeadNotFoundException
+        if (
+            team_lead_user.position is not UserPosition.MANAGER
+            or team_lead_user.status is not UserStatus.ACTIVE
+        ):
+            raise NoManagerTeamLeadException
+
+        other_team = await get_team_by_team_lead_id(session, new_team_data.team_lead_id)
+        if other_team and other_team.id != team_id:
+            raise UserAlreadyTeamLeadException
+
+    if new_team_data.members:
+        if len(new_team_data.members) != len(set(new_team_data.members)):
+            raise TeamMembersNotUniqueException
+        members = await get_users_by_ids(session, new_team_data.members)
+        if len(new_team_data.members) != len(members):
+            raise TeamMembersNotFoundException
+        for user in members:
+            if user.team_id and user.team_id != team_id:
+                raise UserAlreadyInTeamException
+
+    updated_team = await update_team(session, team_to_update, new_team_data, members)
+
+    return updated_team
 
 
-# @user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT)
-# @require_position_authentication([UserPosition.ADMIN, UserPosition.CEO], editing=True)
-# async def delete_user(
-#     user_id: UUID,
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-# ):
-#     user_to_delete = await get_user_by_id(session, user_id)
-#     if not user_to_delete:
-#         raise NotFoundException
-#     if user_to_delete.fired_at is None:
-#         raise NotAllowedToDeleteException
-#     if user_to_delete.fired_at + timedelta(days=DAYS_TILL_DELETE) > date.today():
-#         raise NotAllowedToDeleteException
+@team_router.delete('/{team_id}', status_code=status.HTTP_204_NO_CONTENT)
+@require_position_authentication([UserPosition.ADMIN, UserPosition.CEO])
+async def delete_team(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    team_id: int,
+):
+    team_to_delete = await get_team_by_id(session, team_id)
+    if not team_to_delete:
+        raise NotFoundException
 
-#     await delete_user_by_object(session, user_to_delete)
-#     await delete_key_from_cache(USER_REDIS_KEY, str(user_id), redis)
-
-
-# @user_router.patch('/{user_id}', response_model=UserMinimal)
-# @require_position_authentication(
-#     [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER], editing=True
-# )
-# async def edit_user_info(
-#     user_id: UUID,
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-#     new_user_data: UserEditManager,
-# ):
-#     if new_user_data.email:
-#         email_owner = await get_user_by_email(session, new_user_data.email)
-#         if email_owner:
-#             if email_owner.id != user_id:
-#                 raise EmailAlreadyExistsException
-
-#     edited_user = await update_user_data(session, user_id, new_user_data)
-#     if edited_user is None:
-#         raise UserNotFoundException
-
-#     await set_key_to_cache(
-#         USER_REDIS_KEY,
-#         str(edited_user.id),
-#         UserMinimal.model_validate(edited_user).model_dump_json(),
-#         redis,
-#     )
-
-#     return edited_user
-
-
-# @user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT)
-# @require_position_authentication([UserPosition.ADMIN, UserPosition.CEO], editing=True)
-# async def delete_user(
-#     user_id: UUID,
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-# ):
-#     user_to_delete = await get_user_by_id(session, user_id)
-#     if not user_to_delete:
-#         raise NotFoundException
-#     if user_to_delete.fired_at is None:
-#         raise NotAllowedToDeleteException
-#     if user_to_delete.fired_at + timedelta(days=DAYS_TILL_DELETE) > date.today():
-#         raise NotAllowedToDeleteException
-
-#     await delete_user_by_object(session, user_to_delete)
-#     await delete_key_from_cache(USER_REDIS_KEY, str(user_id), redis)
+    await delete_team_from_db(session, team_to_delete)
