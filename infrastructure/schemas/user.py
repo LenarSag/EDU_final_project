@@ -72,7 +72,6 @@ class UserBase(UserMinimal):
 
 class UserFull(UserBase):
     team: 'Optional[TeamBase]' = Field(None, description="User's team")
-    user_team_lead: Optional[UserMinimal] = Field(None, description="User's team lead")
 
 
 from infrastructure.schemas.team import TeamBase

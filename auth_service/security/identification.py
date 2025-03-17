@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.config import settings
 from config.constants import USER_REDIS_KEY
-from infrastructure.exceptions.exceptions import (
+from infrastructure.exceptions.auth_exceptions import (
     InvalidTokenException,
     InvalidServiceSecretKeyException,
     TokenExpiredException,

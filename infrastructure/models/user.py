@@ -6,7 +6,6 @@ from uuid import uuid4
 from sqlalchemy import Enum as SQLEnum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-
 from infrastructure.models.base import Base
 from config.constants import (
     EMAIL_LENGTH,
@@ -60,14 +59,6 @@ class User(Base):
     team = relationship('Team', back_populates='members', foreign_keys=[team_id])
     team_lead = relationship(
         'Team', back_populates='team_lead', foreign_keys='Team.team_lead_id'
-    )
-    user_team_lead = relationship(
-        'User',
-        primaryjoin=('User.team_id == Team.id & Team.team_lead_id == User.id'),
-        secondary='teams',
-        foreign_keys='Team.team_lead_id',
-        uselist=False,
-        viewonly=True,
     )
     gotten_tasks = relationship(
         'Task', back_populates='task_employee', foreign_keys='Task.employee_id'

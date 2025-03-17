@@ -49,7 +49,6 @@ async def get_user_full_info_by_id(session: AsyncSession, id: UUID) -> Optional[
         .filter_by(id=id)
         .options(
             selectinload(User.team),
-            selectinload(User.user_team_lead),
         )
     )
     result = await session.execute(query)

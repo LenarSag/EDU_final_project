@@ -10,7 +10,7 @@ from auth_service.crud.sql_repository import (
     get_user_by_email,
 )
 from infrastructure.db.sql_db import get_session
-from infrastructure.exceptions.exceptions import (
+from infrastructure.exceptions.auth_exceptions import (
     EmailAlreadyExistsException,
     IncorrectEmailOrPasswordException,
     InvalidServiceSecretKeyException,

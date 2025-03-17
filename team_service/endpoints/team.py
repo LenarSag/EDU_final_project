@@ -23,9 +23,9 @@ from team_service.permissions.rbac_team import (
     require_authentication,
 )
 from infrastructure.db.redis_db import get_redis
-from infrastructure.exceptions.exceptions import (
+from infrastructure.exceptions.basic_exeptions import NotFoundException
+from infrastructure.exceptions.team_exceptions import (
     NoManagerTeamLeadException,
-    NotFoundException,
     TeamAlreadyExistsException,
     TeamLeadNotFoundException,
     TeamMembersNotFoundException,

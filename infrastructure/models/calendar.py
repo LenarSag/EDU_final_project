@@ -22,17 +22,17 @@ class CalendarEvent(Base):
     event_type: Mapped[EventType] = mapped_column(SQLEnum(EventType))
     title: Mapped[str] = mapped_column(String(EVENT_NAME_LENGTH))
     description: Mapped[str]
-    start_time: Mapped[datetime]
+    start_time: Mapped[datetime] = mapped_column(server_default=func.now())
     end_time: Mapped[datetime]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    event_creator_id: Optional[Mapped[PG_UUID]] = mapped_column(
+    event_creator_id: Mapped[Optional[PG_UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey('users.id', ondelete='SET NULL'),
         nullable=True,
     )
 
-    task = relationship('Task', back_populates='calendar_event')
-    meeting = relationship('Meeting', back_populates='calendar_event')
+    task = relationship('Task', back_populates='calendar_event', uselist=False)
+    meeting = relationship('Meeting', back_populates='calendar_event', uselist=False)
     event_creator = relationship('User', back_populates='created_events')
 
     def __repr__(self):

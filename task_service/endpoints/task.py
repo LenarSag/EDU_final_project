@@ -5,24 +5,46 @@ from fastapi_pagination import Page, Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 from infrastructure.db.redis_db import get_redis
-
-from infrastructure.models.user import UserPosition, UserStatus
+from infrastructure.exceptions.auth_exceptions import UserNotFoundException
+from infrastructure.exceptions.basic_exeptions import NotFoundException
+from infrastructure.exceptions.task_execeptions import (
+    CantEditTaskException,
+    NotYourTaskException,
+    TaskAlreadyExistsException,
+)
+from infrastructure.exceptions.team_exceptions import (
+    NotUserManagerException,
+    UserNotInTeamException,
+)
+from infrastructure.models.user import UserPosition
 from infrastructure.db.sql_db import get_session
 from infrastructure.schemas.task import (
+    TaskBase,
+    TaskCreate,
+    TaskEdit,
     TaskEmployee,
     TaskEmployeeManager,
+    TaskFull,
     TaskManager,
     TaskRoleEnum,
 )
-from infrastructure.schemas.user import UserMinimal
 from task_service.crud.sql_repository import (
+    check_task_exist,
+    create_task_for_empoloyee,
+    delete_task_from_db,
     get_all_employee_tasks,
     get_all_manager_tasks,
     get_all_user_tasks,
+    get_task_full_info_by_id,
+    get_user_by_id_with_team,
+    update_task,
 )
-from task_service.permissions.rbac_task import require_authentication
+from task_service.permissions.rbac_task import (
+    require_authentication,
+    require_position_authentication,
+    require_user_authentication,
+)
 
 
 task_router = APIRouter()
@@ -50,140 +72,107 @@ async def get_my_tasks(
     return tasks
 
 
-@task_router.post('/')
-@require_authentication
+@task_router.post('/', response_model=TaskBase, status_code=status.HTTP_201_CREATED)
+@require_position_authentication([UserPosition.MANAGER, UserPosition.CEO])
 async def create_task(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
-    params: Annotated[Params, Depends()],
-    role: Optional[TaskRoleEnum] = None,
+    new_task_data: TaskCreate,
     current_user=None,
 ):
-    if role == 'employee':
-        tasks = await get_all_employee_tasks(session, current_user.id, params)
-    elif role == 'manager':
-        tasks = await get_all_manager_tasks(session, current_user.id, params)
-    elif role is None:
-        tasks = await get_all_user_tasks(session, current_user.id, params)
+    user_to_execute_task = await get_user_by_id_with_team(
+        session, new_task_data.employee_id
+    )
 
-    return tasks
+    if not user_to_execute_task:
+        raise UserNotFoundException
+    if current_user.position == UserPosition.MANAGER:
+        if not user_to_execute_task.team:
+            raise UserNotInTeamException
+        if user_to_execute_task.team.team_lead_id != current_user.id:
+            raise NotUserManagerException
 
+    task_exists = await check_task_exist(
+        session, new_task_data.title, new_task_data.employee_id, current_user.id
+    )
+    if task_exists is not None:
+        raise TaskAlreadyExistsException
 
-# @task_router.post('/', response_model=TeamFull, status_code=status.HTTP_201_CREATED)
-# @require_position_authentication(
-#     [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
-# )
-# async def create_new_task(
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-#     new_team_data: TeamCreate,
-# ):
-#     team = await get_team_by_name(session, new_team_data.name)
-#     if team:
-#         raise TeamAlreadyExistsException
-
-#     team_lead_user = await get_user_by_id(session, new_team_data.team_lead_id)
-#     if team_lead_user is None:
-#         raise TeamLeadNotFoundException
-#     if (
-#         team_lead_user.position is not UserPosition.MANAGER
-#         or team_lead_user.status is not UserStatus.ACTIVE
-#     ):
-#         raise NoManagerTeamLeadException
-
-#     other_team = await get_team_by_team_lead_id(session, new_team_data.team_lead_id)
-#     if other_team:
-#         raise UserAlreadyTeamLeadException
-
-#     if new_team_data.members:
-#         if len(new_team_data.members) != len(set(new_team_data.members)):
-#             raise TeamMembersNotUniqueException
-#         members = await get_users_by_ids(session, new_team_data.members)
-#         if len(new_team_data.members) != len(members):
-#             raise TeamMembersNotFoundException
-#         for user in members:
-#             if user.team_id:
-#                 raise UserAlreadyInTeamException
-
-#     new_team = await create_team(session, new_team_data, members)
-#     return new_team
+    new_task = await create_task_for_empoloyee(session, new_task_data, current_user.id)
+    return new_task
 
 
-# @team_router.get('/{team_id}', response_model=TeamFull)
-# @require_authentication
-# async def get_team_full_info(
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-#     team_id: int,
-# ):
-#     team = await get_team_full_info_by_id(session, team_id)
-#     if team is None:
-#         raise NotFoundException
-#     return team
+@task_router.get('/{task_id}', response_model=TaskFull)
+@require_user_authentication
+async def get_team_full_info(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    task_id: int,
+    current_user=None,
+):
+    task = await get_task_full_info_by_id(session, task_id)
+    if not task:
+        raise NotFoundException
+    if (
+        current_user.position != UserPosition.ADMIN
+        or current_user.position != UserPosition.CEO
+    ):
+        if current_user.id != task.employee_id and current_user.id != task.manager_id:
+            raise NotYourTaskException
+
+    return task
 
 
-# @team_router.patch('/{team_id}', response_model=TeamFull)
-# @require_position_authentication(
-#     [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
-# )
-# async def edit_team(
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-#     team_id: int,
-#     new_team_data: TeamEdit,
-# ):
-#     team_to_update = await get_team_full_info_by_id(session, team_id)
-#     if team_to_update is None:
-#         raise NotFoundException
+@task_router.patch('/{task_id}', response_model=TaskFull)
+@require_user_authentication
+async def edit_task(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    task_id: int,
+    new_task_data: TaskEdit,
+    current_user=None,
+):
+    task = await get_task_full_info_by_id(session, task_id)
+    if not task:
+        raise NotFoundException
+    if (
+        current_user.position != UserPosition.ADMIN
+        or current_user.position != UserPosition.CEO
+    ):
+        if current_user.id != task.manager_id:
+            raise CantEditTaskException
 
-#     team_unique_name = await get_team_by_name(session, new_team_data.name)
-#     if team_unique_name and team_unique_name.id != team_id:
-#         raise TeamAlreadyExistsException
+    if new_task_data.title:
+        task_name_exists = await check_task_exist(
+            session, new_task_data.title, task.employee_id, current_user.id
+        )
+        if task_name_exists is not None and task_name_exists.id != task_id:
+            raise TaskAlreadyExistsException
 
-#     if new_team_data.team_lead_id:
-#         team_lead_user = await get_user_by_id(session, new_team_data.team_lead_id)
-
-#         if team_lead_user is None:
-#             raise TeamLeadNotFoundException
-#         if (
-#             team_lead_user.position is not UserPosition.MANAGER
-#             or team_lead_user.status is not UserStatus.ACTIVE
-#         ):
-#             raise NoManagerTeamLeadException
-
-#         other_team = await get_team_by_team_lead_id(session, new_team_data.team_lead_id)
-#         if other_team and other_team.id != team_id:
-#             raise UserAlreadyTeamLeadException
-
-#     if new_team_data.members:
-#         if len(new_team_data.members) != len(set(new_team_data.members)):
-#             raise TeamMembersNotUniqueException
-#         members = await get_users_by_ids(session, new_team_data.members)
-#         if len(new_team_data.members) != len(members):
-#             raise TeamMembersNotFoundException
-#         for user in members:
-#             if user.team_id and user.team_id != team_id:
-#                 raise UserAlreadyInTeamException
-
-#     updated_team = await update_team(session, team_to_update, new_team_data, members)
-
-#     return updated_team
+    updated_task = await update_task(session, task, new_task_data)
+    return updated_task
 
 
-# @team_router.delete('/{team_id}', status_code=status.HTTP_204_NO_CONTENT)
-# @require_position_authentication([UserPosition.ADMIN, UserPosition.CEO])
-# async def delete_team(
-#     request: Request,
-#     session: Annotated[AsyncSession, Depends(get_session)],
-#     redis: Annotated[Redis, Depends(get_redis)],
-#     team_id: int,
-# ):
-#     team_to_delete = await get_team_by_id(session, team_id)
-#     if not team_to_delete:
-#         raise NotFoundException
+@task_router.delete('/{task_id}', status_code=status.HTTP_204_NO_CONTENT)
+@require_user_authentication
+async def delete_task(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    task_id: int,
+    current_user=None,
+):
+    task = await get_task_full_info_by_id(session, task_id)
+    if not task:
+        raise NotFoundException
+    if (
+        current_user.position != UserPosition.ADMIN
+        or current_user.position != UserPosition.CEO
+    ):
+        if current_user.id != task.manager_id:
+            raise CantEditTaskException
 
-#     await delete_team_from_db(session, team_to_delete)
+    await delete_task_from_db(session, task)

@@ -27,15 +27,17 @@ from auth_service.permissions.rbac_user import (
     require_user_authentication,
 )
 from infrastructure.db.redis_db import get_redis
-from infrastructure.exceptions.exceptions import (
-    AlreadyFiredException,
+from infrastructure.exceptions.auth_exceptions import (
     EmailAlreadyExistsException,
     NotAllowedToDeleteException,
+    UserNotFoundException,
+)
+from infrastructure.exceptions.basic_exeptions import NotFoundException
+from infrastructure.exceptions.user_exeptions import (
+    AlreadyFiredException,
     NotAllowedToFireException,
     NotAllowedToRehireException,
     NotFiredToRehireException,
-    NotFoundException,
-    UserNotFoundException,
 )
 from config.constants import DAYS_TILL_DELETE, USER_REDIS_KEY
 from infrastructure.models.user import UserPosition, UserStatus

@@ -35,7 +35,7 @@ class Meeting(Base):
         ForeignKey('calendar_events.id', ondelete='SET NULL')
     )
 
-    meeting_creator = relationship('Users', back_populates='created_meetings')
+    meeting_creator = relationship('User', back_populates='created_meetings')
     calendar_event = relationship('CalendarEvent', back_populates='meeting')
     participants = relationship(
         'User', secondary='user_meeting_table', back_populates='meetings'

@@ -3,7 +3,7 @@ from enum import Enum as PyEnum
 from typing import Optional
 
 
-from sqlalchemy import Enum as SQLEnum, ForeignKey, func, String
+from sqlalchemy import Enum as SQLEnum, ForeignKey, UniqueConstraint, func, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
@@ -39,7 +39,7 @@ class Task(Base):
         ForeignKey('users.id', ondelete='SET NULL'),
         nullable=True,
     )
-    calendar_event_id: Mapped[int] = mapped_column(
+    calendar_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('calendar_events.id', ondelete='SET NULL'), nullable=True
     )
 
@@ -49,8 +49,18 @@ class Task(Base):
     task_manager = relationship(
         'User', back_populates='assigned_tasks', foreign_keys=[manager_id]
     )
-    calendar_event = relationship('CalendarEvent', back_populates='task')
-    evaluation = relationship('TaskEvaluation', back_populates='task')
+    calendar_event = relationship('CalendarEvent', back_populates='task', uselist=False)
+    evaluation = relationship('TaskEvaluation', back_populates='task', uselist=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            'title',
+            'manager_id',
+            'employee_id',
+            'due_date',
+            name='uq_task_title_mgr_emp_due',
+        ),
+    )
 
     def __repr__(self):
         return f'<Task {self.title} - {self.description} - {self.status}>'
