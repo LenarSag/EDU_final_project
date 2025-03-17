@@ -1,6 +1,7 @@
 from functools import wraps
 
-from fastapi import Depends, Request
+from fastapi import Depends, Path, Request
+from fastapi_pagination import Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,52 +13,14 @@ from config.constants import USER_AUTH_HEADER
 from infrastructure.models.user import UserStatus
 
 
-def require_position_authentication(position: list):
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(
-            request: Request,
-            session: AsyncSession = Depends(get_session),
-            redis: Redis = Depends(get_redis),
-            team_id=None,
-            new_task_data=None,
-            current_user=None,
-        ):
-            user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-
-            if not user_authorization_header:
-                raise NotEnoughRightsException
-
-            current_user = await identificate_user(
-                user_authorization_header, session, redis
-            )
-            if current_user.status != UserStatus.ACTIVE:
-                raise NotEnoughRightsException
-            if position and current_user.position not in position:
-                raise NotEnoughRightsException
-
-            args_list = [request, session, redis]
-            if team_id:
-                args_list.append(team_id)
-            if new_task_data:
-                args_list.append(new_task_data)
-            args_list.append(current_user)
-
-            return await func(*args_list)
-
-        return wrapper
-
-    return decorator
-
-
-def require_authentication(func):
+def require_user_authentication(func):
     @wraps(func)
     async def wrapper(
         request: Request,
         session: AsyncSession = Depends(get_session),
         redis: Redis = Depends(get_redis),
-        params=None,
-        role=None,
+        task_id: int = Path(..., review='The id of the task'),
+        new_task_eval_data=None,
         current_user=None,
     ):
         user_authorization_header = request.headers.get(USER_AUTH_HEADER)
@@ -70,10 +33,9 @@ def require_authentication(func):
         if current_user.status != UserStatus.ACTIVE:
             raise NotEnoughRightsException
 
-        args_list = [request, session, redis]
-        if params:
-            args_list.append(params)
-        args_list.append(role)
+        args_list = [request, session, redis, task_id]
+        if new_task_eval_data:
+            args_list.append(new_task_eval_data)
         if current_user:
             args_list.append(current_user)
 
@@ -82,14 +44,13 @@ def require_authentication(func):
     return wrapper
 
 
-def require_user_authentication(func):
+def require_authentication(func):
     @wraps(func)
     async def wrapper(
         request: Request,
         session: AsyncSession = Depends(get_session),
         redis: Redis = Depends(get_redis),
-        task_id=None,
-        new_task_data=None,
+        params: Params = Depends(),
         current_user=None,
     ):
         user_authorization_header = request.headers.get(USER_AUTH_HEADER)
@@ -102,11 +63,8 @@ def require_user_authentication(func):
         if current_user.status != UserStatus.ACTIVE:
             raise NotEnoughRightsException
 
-        args_list = [request, session, redis]
-        if task_id:
-            args_list.append(task_id)
-        if new_task_data:
-            args_list.append(new_task_data)
+        args_list = [request, session, redis, params]
+
         if current_user:
             args_list.append(current_user)
 

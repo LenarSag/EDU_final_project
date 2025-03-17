@@ -66,8 +66,12 @@ def require_authentication(func):
         user_authorization_header = request.headers.get(USER_AUTH_HEADER)
         service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
 
+        current_user = None
+
         if user_authorization_header:
-            await identificate_user(user_authorization_header, session, redis)
+            current_user = await identificate_user(
+                user_authorization_header, session, redis
+            )
 
         elif service_authorization_header:
             permission = identificate_service(service_authorization_header)
@@ -75,6 +79,9 @@ def require_authentication(func):
                 raise NotEnoughRightsException
 
         else:
+            raise NotEnoughRightsException
+
+        if current_user and current_user.status != UserStatus.ACTIVE:
             raise NotEnoughRightsException
 
         args_list = [request, session, redis]
@@ -105,6 +112,8 @@ def require_user_authentication(func):
         current_user = await identificate_user(
             user_authorization_header, session, redis
         )
+        if current_user.status != UserStatus.ACTIVE:
+            raise NotEnoughRightsException
 
         args_list = [request, session, redis]
 

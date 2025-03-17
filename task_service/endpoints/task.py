@@ -40,6 +40,7 @@ from task_service.crud.sql_repository import (
     get_user_by_id_with_team,
     update_task,
 )
+from task_service.endpoints.task_evaluation import task_eval_router
 from task_service.permissions.rbac_task import (
     require_authentication,
     require_position_authentication,
@@ -73,7 +74,9 @@ async def get_my_tasks(
 
 
 @task_router.post('/', response_model=TaskBase, status_code=status.HTTP_201_CREATED)
-@require_position_authentication([UserPosition.MANAGER, UserPosition.CEO])
+@require_position_authentication(
+    [UserPosition.MANAGER, UserPosition.CEO, UserPosition.ADMIN]
+)
 async def create_task(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -176,3 +179,6 @@ async def delete_task(
             raise CantEditTaskException
 
     await delete_task_from_db(session, task)
+
+
+task_router.include_router(task_eval_router, prefix='/{task_id}/evaluation')

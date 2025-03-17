@@ -21,5 +21,21 @@ class CantEditTaskException(HTTPException):
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Task wasnt created or assigned for you',
+            detail='Task wasnt created by you',
+        )
+
+
+class EvalAlreadyExistsException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Evaluation already done',
+        )
+
+
+class CantEvaluateException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='You have no rights to evaluate task',
         )

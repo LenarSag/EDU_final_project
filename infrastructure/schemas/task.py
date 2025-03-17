@@ -2,12 +2,11 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from enum import Enum
 
 from config.constants import TASK_NAME_LENGTH
 from infrastructure.models.task import TaskStatus
-from infrastructure.schemas.evaluation import TaskEvaluationBase
 from infrastructure.schemas.user import UserMinimal
 
 
@@ -76,6 +75,11 @@ class TaskEmployeeManager(TaskEmployee, TaskManager):
 
 
 class TaskFull(TaskEmployeeManager):
-    evaluation: Optional[TaskEvaluationBase] = Field(
+    evaluation: 'Optional[TaskEvaluationBase]' = Field(
         None, description='Task evaluation'
     )
+
+
+from infrastructure.schemas.evaluation import TaskEvaluationBase
+
+TaskFull.model_rebuild()

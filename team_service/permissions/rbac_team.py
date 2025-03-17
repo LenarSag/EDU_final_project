@@ -63,7 +63,11 @@ def require_authentication(func):
 
         if not user_authorization_header:
             raise NotEnoughRightsException
-        await identificate_user(user_authorization_header, session, redis)
+        current_user = await identificate_user(
+            user_authorization_header, session, redis
+        )
+        if current_user.status != UserStatus.ACTIVE:
+            raise NotEnoughRightsException
 
         args_list = [request, session, redis]
         if params:

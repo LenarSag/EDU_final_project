@@ -3,7 +3,6 @@ from uuid import UUID
 
 from fastapi_pagination import Params
 from fastapi_pagination.ext.sqlalchemy import paginate
-
 from sqlalchemy import delete, or_
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.future import select
@@ -27,22 +26,22 @@ async def get_user_by_id_with_team(session: AsyncSession, id: UUID) -> Optional[
 
 
 async def get_all_employee_tasks(
-    session: AsyncSession, user_id: UUID, params: Params
+    session: AsyncSession, employee_id: UUID, params: Params
 ) -> Sequence[Task]:
     query = (
         select(Task)
-        .where(Task.employee_id == user_id)
+        .where(Task.employee_id == employee_id)
         .options(selectinload(Task.task_manager))
     )
     return await paginate(session, query, params)
 
 
 async def get_all_manager_tasks(
-    session: AsyncSession, user_id: UUID, params: Params
+    session: AsyncSession, manager_id: UUID, params: Params
 ) -> Sequence[Task]:
     query = (
         select(Task)
-        .where(Task.manager_id == user_id)
+        .where(Task.manager_id == manager_id)
         .options(selectinload(Task.task_employee))
     )
     return await paginate(session, query, params)
@@ -71,6 +70,12 @@ async def get_task_full_info_by_id(
             joinedload(Task.evaluation),
         )
     )
+    result = await session.execute(query)
+    return result.scalar()
+
+
+async def get_task_by_id(session: AsyncSession, task_id: int) -> Optional[Task]:
+    query = select(Task).filter_by(id=task_id)
     result = await session.execute(query)
     return result.scalar()
 
