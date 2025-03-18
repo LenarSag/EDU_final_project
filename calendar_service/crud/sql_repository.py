@@ -3,12 +3,12 @@ from uuid import UUID
 
 from fastapi_pagination import Params
 from fastapi_pagination.ext.sqlalchemy import paginate
-from sqlalchemy import delete, update
+from sqlalchemy import delete, or_, update
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from infrastructure.models.calendar import CalendarEvent, EventType
-from infrastructure.models.meeting import Meeting
+from infrastructure.models.meeting import Meeting, user_meeting
 from infrastructure.models.user import User
 from infrastructure.schemas.meeting import MeetingCreate, MeetingEdit
 
@@ -67,7 +67,6 @@ async def create_new_meeting(
     session: AsyncSession,
     new_meeting_data: MeetingCreate,
     organizer_id: UUID,
-    participants: Sequence[User],
 ):
     new_calendar_event = CalendarEvent(
         event_type=EventType.MEETING,
@@ -88,10 +87,18 @@ async def create_new_meeting(
         end_time=new_meeting_data.end_time,
         meeting_creator_id=organizer_id,
         calendar_event_id=new_calendar_event.id,
-        participants=participants,
     )
 
     session.add(new_meeting)
+    await session.flush()
+
+    await session.execute(
+        user_meeting.insert(),
+        [
+            {'user_id': id, 'meeting_id': new_meeting.id}
+            for id in new_meeting_data.participants
+        ],
+    )
 
     await session.commit()
     await session.refresh(

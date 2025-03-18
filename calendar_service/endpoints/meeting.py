@@ -1,11 +1,12 @@
-from typing import Annotated
+from typing import Annotated, Optional, Union
 
-from fastapi import BackgroundTasks, Depends, APIRouter, Request, status
+from fastapi import Depends, APIRouter, Request, status
 from fastapi_pagination import Page, Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.db.redis_db import get_redis
+from infrastructure.exceptions.auth_exceptions import UserNotFoundException
 from infrastructure.exceptions.basic_exeptions import NotFoundException
 from infrastructure.exceptions.meeting_exceptions import (
     AtLeastTwoMeetingParticipantsException,
@@ -16,7 +17,6 @@ from infrastructure.exceptions.meeting_exceptions import (
 )
 from infrastructure.models.user import UserPosition
 from infrastructure.db.sql_db import get_session
-from infrastructure.notification.notification import send_email
 from infrastructure.schemas.meeting import MeetingCreate, MeetingEdit, MeetingFull
 from meeting_service.crud.sql_repository import (
     create_new_meeting,
@@ -57,7 +57,6 @@ async def get_my_tasks(
 )
 async def create_meeting(
     request: Request,
-    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     new_meeting_data: MeetingCreate,
@@ -74,21 +73,15 @@ async def create_meeting(
     if len(participants) < 2:
         raise AtLeastTwoMeetingParticipantsException
 
-    new_meeting = await create_new_meeting(
-        session, new_meeting_data, current_user.id, participants
-    )
+    new_team = await create_new_meeting(session, new_meeting_data, current_user.id)
 
-    email = [participant.email for participant in participants]
-    background_tasks.add_task(send_email, email, 'Notification', 'Meeting added')
-
-    return new_meeting
+    return new_team
 
 
 @meeting_router.get('/{meeting_id}', response_model=MeetingFull)
 @require_user_authentication
 async def get_meeting_full_info(
     request: Request,
-    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     meeting_id: int,
@@ -114,21 +107,20 @@ async def get_meeting_full_info(
 @require_user_authentication
 async def edit_meeting(
     request: Request,
-    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     meeting_id: int,
     new_meeting_data: MeetingEdit,
     current_user=None,
 ):
-    meeting_to_update = await get_meeting_full_info_by_id(session, meeting_id)
-    if not meeting_to_update:
+    meeting = await get_meeting_full_info_by_id(session, meeting_id)
+    if not meeting:
         raise NotFoundException
     if (
         current_user.position != UserPosition.ADMIN
         or current_user.position != UserPosition.CEO
     ):
-        if current_user.id != meeting_to_update.meeting_creator_id:
+        if current_user.id != meeting.meeting_creator_id:
             raise CantEditMeetingException
 
     participants = None
@@ -147,37 +139,29 @@ async def edit_meeting(
         if len(participants) < 2:
             raise AtLeastTwoMeetingParticipantsException
 
-    updated_meeting = await update_meeting(
-        session, meeting_to_update, new_meeting_data, participants
+    updated_task = await update_meeting(
+        session, meeting, new_meeting_data, participants
     )
-
-    email = [participant.email for participant in updated_meeting.participants]
-    background_tasks.add_task(send_email, email, 'Notification', 'Meeting updated')
-
-    return updated_meeting
+    return updated_task
 
 
 @meeting_router.delete('/{meeting_id}', status_code=status.HTTP_204_NO_CONTENT)
 @require_user_authentication
 async def delete_meeting(
     request: Request,
-    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     meeting_id: int,
     current_user=None,
 ):
-    meeting_to_delete = await get_meeting_full_info_by_id(session, meeting_id)
-    if not meeting_to_delete:
+    meeting = await get_meeting_full_info_by_id(session, meeting_id)
+    if not meeting:
         raise NotFoundException
     if (
         current_user.position != UserPosition.ADMIN
         or current_user.position != UserPosition.CEO
     ):
-        if current_user.id != meeting_to_delete.meeting_creator_id:
+        if current_user.id != meeting.meeting_creator_id:
             raise CantEditMeetingException
 
-    await delete_meeting_from_db(session, meeting_to_delete)
-
-    email = [participant.email for participant in meeting_to_delete.participants]
-    background_tasks.add_task(send_email, email, 'Notification', 'Meeting deleted')
+    await delete_meeting_from_db(session, meeting)

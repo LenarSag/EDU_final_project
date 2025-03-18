@@ -1,6 +1,6 @@
 from functools import wraps
 
-from fastapi import Depends, Request
+from fastapi import BackgroundTasks, Depends, Request
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,9 +17,9 @@ def require_position_authentication(position: list):
         @wraps(func)
         async def wrapper(
             request: Request,
+            background_tasks=BackgroundTasks,
             session: AsyncSession = Depends(get_session),
             redis: Redis = Depends(get_redis),
-            meeting_id=None,
             new_meeting_data=None,
             current_user=None,
         ):
@@ -36,9 +36,7 @@ def require_position_authentication(position: list):
             if position and current_user.position not in position:
                 raise NotEnoughRightsException
 
-            args_list = [request, session, redis]
-            if meeting_id:
-                args_list.append(meeting_id)
+            args_list = [request, background_tasks, session, redis]
             if new_meeting_data:
                 args_list.append(new_meeting_data)
             args_list.append(current_user)
@@ -84,6 +82,7 @@ def require_user_authentication(func):
     @wraps(func)
     async def wrapper(
         request: Request,
+        background_tasks=BackgroundTasks,
         session: AsyncSession = Depends(get_session),
         redis: Redis = Depends(get_redis),
         meeting_id=None,
@@ -100,7 +99,7 @@ def require_user_authentication(func):
         if current_user.status != UserStatus.ACTIVE:
             raise NotEnoughRightsException
 
-        args_list = [request, session, redis]
+        args_list = [request, background_tasks, session, redis]
         if meeting_id:
             args_list.append(meeting_id)
         if new_meeting_data:

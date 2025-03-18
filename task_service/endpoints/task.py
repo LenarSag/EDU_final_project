@@ -1,6 +1,6 @@
 from typing import Annotated, Optional, Union
 
-from fastapi import Depends, APIRouter, Request, status
+from fastapi import BackgroundTasks, Depends, APIRouter, Request, status
 from fastapi_pagination import Page, Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from infrastructure.exceptions.team_exceptions import (
 )
 from infrastructure.models.user import UserPosition
 from infrastructure.db.sql_db import get_session
+from infrastructure.notification.notification import send_email
 from infrastructure.schemas.task import (
     TaskBase,
     TaskCreate,
@@ -79,6 +80,7 @@ async def get_my_tasks(
 )
 async def create_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     new_task_data: TaskCreate,
@@ -103,6 +105,10 @@ async def create_task(
         raise TaskAlreadyExistsException
 
     new_task = await create_task_for_empoloyee(session, new_task_data, current_user.id)
+
+    email = [user_to_execute_task.email]
+    background_tasks.add_task(send_email, email, 'Notification', 'Task added')
+
     return new_task
 
 
@@ -110,6 +116,7 @@ async def create_task(
 @require_user_authentication
 async def get_task_full_info(
     request: Request,
+    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     task_id: int,
@@ -132,30 +139,35 @@ async def get_task_full_info(
 @require_user_authentication
 async def edit_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     task_id: int,
     new_task_data: TaskEdit,
     current_user=None,
 ):
-    task = await get_task_full_info_by_id(session, task_id)
-    if not task:
+    task_to_update = await get_task_full_info_by_id(session, task_id)
+    if not task_to_update:
         raise NotFoundException
     if (
         current_user.position != UserPosition.ADMIN
         or current_user.position != UserPosition.CEO
     ):
-        if current_user.id != task.manager_id:
+        if current_user.id != task_to_update.manager_id:
             raise CantEditTaskException
 
     if new_task_data.title:
         task_name_exists = await check_task_exist(
-            session, new_task_data.title, task.employee_id, current_user.id
+            session, new_task_data.title, task_to_update.employee_id, current_user.id
         )
         if task_name_exists is not None and task_name_exists.id != task_id:
             raise TaskAlreadyExistsException
 
-    updated_task = await update_task(session, task, new_task_data)
+    updated_task = await update_task(session, task_to_update, new_task_data)
+
+    email = [task_to_update.task_employee.email]
+    background_tasks.add_task(send_email, email, 'Notification', 'Task changed')
+
     return updated_task
 
 
@@ -163,22 +175,26 @@ async def edit_task(
 @require_user_authentication
 async def delete_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
     task_id: int,
     current_user=None,
 ):
-    task = await get_task_full_info_by_id(session, task_id)
-    if not task:
+    task_to_delete = await get_task_full_info_by_id(session, task_id)
+    if not task_to_delete:
         raise NotFoundException
     if (
         current_user.position != UserPosition.ADMIN
         or current_user.position != UserPosition.CEO
     ):
-        if current_user.id != task.manager_id:
+        if current_user.id != task_to_delete.manager_id:
             raise CantEditTaskException
 
-    await delete_task_from_db(session, task)
+    await delete_task_from_db(session, task_to_delete)
+
+    email = [task_to_delete.task_employee.email]
+    background_tasks.add_task(send_email, email, 'Notification', 'Task deleted')
 
 
 task_router.include_router(task_eval_router, prefix='/{task_id}/evaluation')
