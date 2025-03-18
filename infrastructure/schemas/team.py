@@ -16,7 +16,7 @@ class TeamCreate(BaseModel):
 
 class TeamEdit(BaseModel):
     name: Optional[str] = Field(
-        ..., max_length=TEAM_NAME_LENGTH, description='Team name'
+        None, max_length=TEAM_NAME_LENGTH, description='Team name'
     )
     description: Optional[str] = Field(None, description='Team description')
     team_lead_id: Optional[UUID] = Field(None, description='Team lead id')

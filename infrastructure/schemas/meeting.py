@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from config.constants import MEETING_NAME_LENGTH
 from infrastructure.schemas.user import UserMinimal
@@ -14,14 +14,42 @@ class MeetingCreate(BaseModel):
     start_time: datetime = Field(..., description='Meeting start time')
     end_time: datetime = Field(..., description='Meeting end time')
 
+    participants: list[UUID] = Field(..., description='Meeting participants')
+
+    @model_validator(mode='after')
+    def check_times(self):
+        if self.start_time < datetime.now(timezone.utc):
+            raise ValueError(f'{self.start_time} cannot be earlier than now.')
+
+        if self.end_time < self.start_time:
+            raise ValueError(
+                f'{self.end_time} cannot be earlier than {self.start_time}.'
+            )
+
+        return self
+
 
 class MeetingEdit(BaseModel):
     title: Optional[str] = Field(
         None, max_length=MEETING_NAME_LENGTH, description='Meeting name'
     )
     description: Optional[str] = Field(None, description='Meeting description')
-    start_time: Optional[datetime] = Field(None, description='Meeting start time')
-    end_time: Optional[datetime] = Field(None, description='Meeting end time')
+    start_time: datetime = Field(..., description='Meeting start time')
+    end_time: datetime = Field(..., description='Meeting end time')
+
+    participants: Optional[list[UUID]] = Field(None, description='Meeting participants')
+
+    @model_validator(mode='after')
+    def check_times(self):
+        if self.start_time < datetime.now(timezone.utc):
+            raise ValueError(f'{self.start_time} cannot be earlier than now.')
+
+        if self.end_time < self.start_time:
+            raise ValueError(
+                f'{self.end_time} cannot be earlier than {self.start_time}.'
+            )
+
+        return self
 
 
 class MeetingBase(BaseModel):

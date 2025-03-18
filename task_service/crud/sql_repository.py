@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi_pagination import Params
 from fastapi_pagination.ext.sqlalchemy import paginate
-from sqlalchemy import delete, or_
+from sqlalchemy import delete, or_, update
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -122,6 +122,21 @@ async def update_task(
     for key, value in new_task_data.model_dump().items():
         if value:
             setattr(task_to_update, key, value)
+
+    calendar_update_data = {
+        'end_time': new_task_data.due_date,
+        'title': new_task_data.title,
+        'description': new_task_data.description,
+    }
+    calendar_update_data = {
+        key: value for key, value in calendar_update_data.items() if value is not None
+    }
+    if calendar_update_data:
+        await session.execute(
+            update(CalendarEvent)
+            .where(CalendarEvent.id == task_to_update.calendar_event_id)
+            .values(**calendar_update_data)
+        )
 
     await session.commit()
     await session.refresh(task_to_update)

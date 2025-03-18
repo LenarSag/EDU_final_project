@@ -108,7 +108,7 @@ async def create_task(
 
 @task_router.get('/{task_id}', response_model=TaskFull)
 @require_user_authentication
-async def get_team_full_info(
+async def get_task_full_info(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],

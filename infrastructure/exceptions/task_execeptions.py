@@ -12,7 +12,7 @@ class TaskAlreadyExistsException(HTTPException):
 class NotYourTaskException(HTTPException):
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail='Task wasnt created or assigned for you',
         )
 
@@ -20,7 +20,7 @@ class NotYourTaskException(HTTPException):
 class CantEditTaskException(HTTPException):
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail='Task wasnt created by you',
         )
 
@@ -36,6 +36,6 @@ class EvalAlreadyExistsException(HTTPException):
 class CantEvaluateException(HTTPException):
     def __init__(self):
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail='You have no rights to evaluate task',
         )
