@@ -1,11 +1,10 @@
 from functools import wraps
 
 from fastapi import Depends, Request
-from fastapi_pagination import Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from team_service.security.identification import identificate_service, identificate_user
+from team_service.security.identification import identificate_user
 from infrastructure.db.redis_db import get_redis
 from infrastructure.db.sql_db import get_session
 from infrastructure.exceptions.auth_exceptions import NotEnoughRightsException

@@ -7,6 +7,7 @@ from sqlalchemy import delete, or_, update
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from infrastructure.models.calendar import CalendarEvent, EventType
 from infrastructure.models.task import Task, TaskStatus
 from infrastructure.models.user import User

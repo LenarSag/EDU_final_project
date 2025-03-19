@@ -11,9 +11,7 @@ from calendar_service.crud.sql_repository import (
 )
 from calendar_service.permissions.rbac_calendar import require_authentication
 from infrastructure.db.redis_db import get_redis
-from infrastructure.exceptions.auth_exceptions import UserNotFoundException
 from infrastructure.exceptions.basic_exeptions import NotFoundException
-
 from infrastructure.models.calendar import EventType
 from infrastructure.models.user import UserPosition
 from infrastructure.db.sql_db import get_session

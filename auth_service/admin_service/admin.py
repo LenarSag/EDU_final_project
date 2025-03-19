@@ -8,6 +8,10 @@ from auth_service.security.authentication import (
 )
 from auth_service.security.identification import check_jwt
 from config.config import settings
+from infrastructure.models.calendar import CalendarEvent
+from infrastructure.models.evaluation import TaskEvaluation
+from infrastructure.models.meeting import Meeting
+from infrastructure.models.task import Task
 from infrastructure.models.user import User, UserPosition
 from infrastructure.models.team import Team
 from infrastructure.db.sql_db import AsyncSessionLocal
@@ -42,6 +46,81 @@ class AdminAuth(AuthenticationBackend):
         return True
 
 
+class CalendarAdmin(ModelView, model=CalendarEvent):
+    column_list = [
+        CalendarEvent.id,
+        CalendarEvent.event_type,
+        CalendarEvent.title,
+        CalendarEvent.description,
+        CalendarEvent.start_time,
+        CalendarEvent.end_time,
+        CalendarEvent.created_at,
+        CalendarEvent.event_creator,
+    ]
+
+    page_size = 50
+    page_size_options = [10, 25, 50]
+
+
+class EvaluationAdmin(ModelView, model=TaskEvaluation):
+    column_list = [
+        TaskEvaluation.id,
+        TaskEvaluation.score_quality,
+        TaskEvaluation.task_id,
+        TaskEvaluation.task,
+    ]
+
+    page_size = 50
+    page_size_options = [10, 25, 50]
+
+
+class MeetingAdmin(ModelView, model=Meeting):
+    column_list = [
+        Meeting.id,
+        Meeting.title,
+        Meeting.description,
+        Meeting.start_time,
+        Meeting.end_time,
+        Meeting.created_at,
+        Meeting.meeting_creator_id,
+        Meeting.meeting_creator,
+        Meeting.participants,
+    ]
+
+    page_size = 50
+    page_size_options = [10, 25, 50]
+
+
+class TaskAdmin(ModelView, model=Task):
+    column_list = [
+        Task.id,
+        Task.title,
+        Task.description,
+        Task.due_date,
+        Task.status,
+        Task.created_at,
+        Task.updated_at,
+        Task.employee_id,
+        Task.manager_id,
+        Task.task_employee,
+        Task.task_manager,
+        Task.evaluation,
+    ]
+
+    page_size = 50
+    page_size_options = [10, 25, 50]
+
+
+class TeamAdmin(ModelView, model=Team):
+    column_list = [
+        Team.id,
+        Team.name,
+        Team.description,
+        Team.team_lead,
+        Team.members,
+    ]
+
+
 class UserAdmin(ModelView, model=User):
     column_list = [
         User.id,
@@ -56,13 +135,3 @@ class UserAdmin(ModelView, model=User):
     ]
     page_size = 50
     page_size_options = [10, 25, 50]
-
-
-class TeamAdmin(ModelView, model=Team):
-    column_list = [
-        Team.id,
-        Team.name,
-        Team.description,
-        Team.team_lead,
-        Team.members,
-    ]

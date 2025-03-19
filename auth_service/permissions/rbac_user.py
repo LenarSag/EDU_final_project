@@ -2,7 +2,6 @@ from functools import wraps
 from uuid import UUID
 
 from fastapi import Depends, Request
-from fastapi_pagination import Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
