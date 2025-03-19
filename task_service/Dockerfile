@@ -15,7 +15,7 @@ COPY ../../config /app/config
 COPY ../../infrastructure /app/infrastructure
 
 # Copy service-specific files
-COPY . /app/task_service
+COPY ./task_service /app/task_service
 
 # Expose service port
 EXPOSE 8004

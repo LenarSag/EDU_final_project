@@ -23,7 +23,6 @@ services:
       - redis_data:/data
     ports:
       - "6379:6379"
-    restart: always
     depends_on:
       - db
     restart: always
@@ -36,9 +35,10 @@ services:
       - redis
     env_file:
       - .env
-    networks:
-      - backend
     restart: always
+    ports:
+      - "8001:8001"
+
 
   calendar_service:
     build:
@@ -48,9 +48,10 @@ services:
       - redis
     env_file:
       - .env
-    networks:
-      - backend
     restart: always
+    ports:
+      - "8002:8002"
+
 
   meeting_service:
     build:
@@ -60,9 +61,10 @@ services:
       - redis
     env_file:
       - .env
-    networks:
-      - backend
     restart: always
+    ports:
+      - "8003:8003"
+
 
   task_service:
     build:
@@ -72,9 +74,10 @@ services:
       - redis
     env_file:
       - .env
-    networks:
-      - backend
     restart: always
+    ports:
+      - "8004:8004"
+
 
   team_service:
     build:
@@ -84,9 +87,10 @@ services:
       - redis
     env_file:
       - .env
-    networks:
-      - backend
     restart: always
+    ports:
+      - "8005:8005"
+
 
   nginx:
     image: nginx:latest
@@ -100,8 +104,6 @@ services:
       - meeting_service
       - task_service
       - team_service
-    networks:
-      - backend
     restart: always
 
 

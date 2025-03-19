@@ -14,15 +14,21 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY ../../config /app/config
 COPY ../../infrastructure /app/infrastructure
 
-# Copy service-specific files
-COPY . /app/auth_service
+# Copy start.sh
+COPY ../../start.sh /app/start.sh
 
-# Copy and make `start.sh` executable
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+# Copy alembic 
+COPY ../../alembic /app/alembic
+COPY ../../alembic.ini /app/alembic.ini
+
+# Copy service-specific files
+COPY ./auth_service /app/auth_service
 
 # Expose service port
 EXPOSE 8001
 
-# Run the start script
-ENTRYPOINT ["/start.sh"]
+
+# Run the service
+CMD ["uvicorn", "auth_service.auth_main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+

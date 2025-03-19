@@ -15,7 +15,7 @@ COPY ../../config /app/config
 COPY ../../infrastructure /app/infrastructure
 
 # Copy service-specific files
-COPY . /app/meeting_service
+COPY ./meeting_service /app/meeting_service
 
 # Expose service port
 EXPOSE 8003

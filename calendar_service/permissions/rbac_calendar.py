@@ -4,7 +4,7 @@ from fastapi import Depends, Request
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from meeting_service.security.identification import identificate_user
+from calendar_service.security.identification import identificate_user
 from infrastructure.db.redis_db import get_redis
 from infrastructure.db.sql_db import get_session
 from infrastructure.exceptions.auth_exceptions import NotEnoughRightsException

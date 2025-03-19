@@ -15,7 +15,7 @@ COPY ../../config /app/config
 COPY ../../infrastructure /app/infrastructure
 
 # Copy service-specific files
-COPY . /app/team_service
+COPY ./team_service /app/team_service
 
 # Expose service port
 EXPOSE 8005

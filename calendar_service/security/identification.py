@@ -17,11 +17,11 @@ from infrastructure.exceptions.auth_exceptions import (
     UserNotFoundException,
 )
 from infrastructure.schemas.user import UserMinimal
-from meeting_service.crud.cache_repository import (
+from calendar_service.crud.cache_repository import (
     get_key_from_cache,
     set_key_to_cache,
 )
-from meeting_service.crud.sql_repository import get_user_by_id
+from calendar_service.crud.sql_repository import get_user_by_id
 
 
 def check_jwt(authorization_header: str, secret_key: str) -> str:

@@ -15,7 +15,7 @@ COPY ../../config /app/config
 COPY ../../infrastructure /app/infrastructure
 
 # Copy service-specific files
-COPY . /app/calendar_service
+COPY ./calendar_service /app/calendar_service
 
 # Expose service port
 EXPOSE 8002
