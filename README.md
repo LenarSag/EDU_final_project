@@ -43,42 +43,64 @@
 2. Создайте файл .env с переменными окружения для каждого сервиса (если они не включены в проект).
 
 3. Запустите проект с помощью Docker Compose:
-```bash
-docker-compose up --build
+   ```bash
+   docker-compose up --build
 
 Это создаст и запустит все необходимые контейнеры.
 
+### Сервисы
 
-Все сервисы будут доступны по следующим портам:
+Сервисы будут доступны по следующим адресам:
 
+```
+localhost/admin/
+localhost/users/
+localhost/auth/
+localhost/calendar/
+localhost/meetings/ 
+localhost/tasks/
+localhost/evaluations/
+localhost/teams/
+```
+
+Также, все сервисы будут доступны по следующим портам:
+
+```
 auth_service: 8001
 calendar_service: 8002
 meeting_service: 8003
 task_service: 8004
 team_service: 8005
 nginx: 80 (для проксирования запросов)
+```
 
 
-Сервисы
 auth_service:
-
 Ответственен за аутентификацию и управление пользователями.
 Порты: 8001
-calendar_service:
 
+calendar_service:
 Ответственен за управление календарем и событиями.
 Порты: 8002
-meeting_service:
 
+meeting_service:
 Ответственен за управление встречами.
 Порты: 8003
-task_service:
 
+task_service:
 Ответственен за управление задачами и оценками.
 Порты: 8004
-team_service:
 
+team_service:
 Ответственен за управление командами.
 Порты: 8005
-nginx:
 
+nginx:
+Используется для проксирования запросов между сервисами.
+Порты: 80
+
+### Миграции
+Для применения миграций:
+
+   ```bash
+   docker-compose exec auth_service alembic upgrade head
