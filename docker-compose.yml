@@ -1,20 +1,20 @@
-version: '3'
-
 volumes:
   db:
   redis_data:
-  telegram_data:  
+
+networks:
+  backend:
 
 services:
   db:
     image: postgres:17.2
     env_file:
-      - creds/.env
+      - .env
     volumes:
       - db:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    restart: on-failure
+    restart: always
 
   redis:
     image: redis:7
@@ -23,28 +23,89 @@ services:
       - redis_data:/data
     ports:
       - "6379:6379"
-    restart: on-failure
-
-  telegram_bot_api:
-    image: aiogram/telegram-bot-api:latest
-    env_file :
-      - creds/.env
-    volumes:
-      - telegram_data:/var/lib/telegram-bot-api  
-    ports:
-      - "8081:8081"
     depends_on:
       - db
-    restart: on-failure
+    restart: always
 
-  bot:
+  auth_service:
     build:
       context: .
-      dockerfile: Dockerfile
-    env_file:
-      - creds/.env
-    volumes:
-      - telegram_data:/var/lib/telegram-bot-api 
+      dockerfile: auth_service/Dockerfile
     depends_on:
-      - telegram_bot_api
-    restart: on-failure
+      - redis
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "8001:8001"
+
+
+  calendar_service:
+    build:
+      context: .
+      dockerfile: calendar_service/Dockerfile
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "8002:8002"
+
+
+  meeting_service:
+    build:
+      context: .
+      dockerfile: meeting_service/Dockerfile
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "8003:8003"
+
+
+  task_service:
+    build:
+      context: .
+      dockerfile: task_service/Dockerfile
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "8004:8004"
+
+
+  team_service:
+    build:
+      context: .
+      dockerfile: team_service/Dockerfile
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "8005:8005"
+
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - auth_service
+      - calendar_service
+      - meeting_service
+      - task_service
+      - team_service
+    restart: always
+
+
+
+

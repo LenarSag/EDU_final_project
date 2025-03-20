@@ -1,88 +1,228 @@
+from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, APIRouter, Request
-
+from fastapi import Depends, APIRouter, Request, status
+from fastapi_pagination import Page, Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service.crud.cache_repository import get_key_from_cache, set_key_to_cache
-from auth_service.crud.sql_repository import get_user_by_id
-from auth_service.db.redis_db import get_redis
-from auth_service.exceptions.exceptions import NotEnoughRights
-from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER
-from infrastructure.models.user import UserPosition
-from security.identification import (
-    identificate_service,
-    identificate_user,
-    identify_user_and_check_role,
+from auth_service.crud.cache_repository import (
+    delete_key_from_cache,
+    set_key_to_cache,
 )
-from infrastructure.schemas.user import UserOut
-from db.sql_db import get_session
+from auth_service.crud.sql_repository import (
+    delete_user_by_object,
+    fire_user_db,
+    get_all_users_db,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_full_info_by_id,
+    rehire_user_db,
+    update_user_data,
+)
+from auth_service.permissions.rbac_user import (
+    require_position_authentication,
+    require_authentication,
+    require_user_authentication,
+)
+from infrastructure.db.redis_db import get_redis
+from infrastructure.exceptions.auth_exceptions import (
+    EmailAlreadyExistsException,
+    NotAllowedToDeleteException,
+    UserNotFoundException,
+)
+from infrastructure.exceptions.basic_exeptions import NotFoundException
+from infrastructure.exceptions.user_exeptions import (
+    AlreadyFiredException,
+    NotAllowedToFireException,
+    NotAllowedToRehireException,
+    NotFiredToRehireException,
+)
+from config.constants import DAYS_TILL_DELETE, USER_REDIS_KEY
+from infrastructure.models.user import UserPosition, UserStatus
+
+from infrastructure.schemas.user import (
+    UserEditManager,
+    UserMinimal,
+    UserEditSelf,
+    UserFull,
+)
+from infrastructure.db.sql_db import get_session
 
 
 user_router = APIRouter()
 
 
-@user_router.get('/te')
+@user_router.get('/', response_model=Page[UserMinimal])
+@require_authentication
+async def get_all_users(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    params: Annotated[Params, Depends()],
+):
+    users = await get_all_users_db(session, params)
+    return users
+
+
+@user_router.get('/me', response_model=UserMinimal)
+@require_user_authentication
 async def get_myself(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
+    current_user=None,
 ):
-    current_user = await get_user_by_id(
-        session, UUID('68fc3888e72f432c9d56a7634990b3c3')
+    return current_user
+
+
+@user_router.patch('/me', response_model=UserMinimal)
+@require_user_authentication
+async def edit_myself(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    new_user_data: UserEditSelf,
+    current_user=None,
+):
+    updated_user = await update_user_data(
+        session,
+        current_user.id,
+        new_user_data,
     )
-    return current_user
+    str_user_id = str(current_user.id)
+
+    await set_key_to_cache(
+        USER_REDIS_KEY,
+        str_user_id,
+        UserMinimal.model_validate(updated_user).model_dump_json(),
+        redis,
+    )
+
+    return updated_user
 
 
-@user_router.get('/me', response_model=UserOut)
-async def get_myself(
+@user_router.post('/{user_id}/rehire', response_model=UserMinimal)
+@require_position_authentication(
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
+)
+async def rehire_user(
+    user_id: UUID,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
 ):
-    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-    if not user_authorization_header:
-        raise NotEnoughRights
-    current_user = await identificate_user(user_authorization_header, session, redis)
+    user_to_rehire = await get_user_by_id(session, user_id)
+    if user_to_rehire is None:
+        raise NotFoundException
+    if user_to_rehire.fired_at is None:
+        raise NotFiredToRehireException
+    if user_to_rehire.fired_at + timedelta(days=DAYS_TILL_DELETE) < date.today():
+        raise NotAllowedToRehireException
 
-    return current_user
+    user_to_rehire = await rehire_user_db(session, user_to_rehire)
+    user_pydantic = UserMinimal.model_validate(user_to_rehire)
+    await set_key_to_cache(
+        USER_REDIS_KEY,
+        str(user_id),
+        user_pydantic.model_dump_json(),
+        redis,
+    )
+
+    return user_pydantic
 
 
-@user_router.get('/{user_id}', response_model=UserOut)
-async def get_user(
-    user_id: str,
+@user_router.post('/{user_id}/fire', response_model=UserMinimal)
+@require_position_authentication(
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
+)
+async def fire_user(
+    user_id: UUID,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
 ):
-    uuid_user_id = UUID(user_id)
-    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-    service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
+    user_to_fire = await get_user_by_id(session, user_id)
+    if user_to_fire is None:
+        raise NotFoundException
+    if user_to_fire.status == UserStatus.FIRED:
+        raise AlreadyFiredException
+    if user_to_fire.position in [UserPosition.ADMIN, UserPosition.CEO]:
+        raise NotAllowedToFireException
 
-    if user_authorization_header:
-        permission = await identify_user_and_check_role(
-            uuid_user_id,
-            user_authorization_header,
-            [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER],
-            session,
-            redis,
-        )
-    elif service_authorization_header:
-        permission = identificate_service(service_authorization_header)
-    else:
-        raise NotEnoughRights
+    user_to_fire = await fire_user_db(session, user_to_fire)
+    user_pydantic = UserMinimal.model_validate(user_to_fire)
+    await set_key_to_cache(
+        USER_REDIS_KEY,
+        str(user_id),
+        user_pydantic.model_dump_json(),
+        redis,
+    )
 
-    if permission:
-        cached_user = await get_key_from_cache('user', user_id, redis)
-        if cached_user:
-            return UserOut.model_validate_json(cached_user)
+    return user_pydantic
 
-        user = await get_user_by_id(session, uuid_user_id)
 
-        json_user = UserOut.model_validate(user).model_dump_json()
-        await set_key_to_cache('user', user_id, json_user, redis)
+@user_router.get('/{user_id}', response_model=UserFull)
+@require_authentication
+async def get_user_full_info(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    user_id: UUID,
+):
+    user = await get_user_full_info_by_id(session, user_id)
+    if user is None:
+        raise NotFoundException
+    return user
 
-        return user
-    raise NotEnoughRights
+
+@user_router.patch('/{user_id}', response_model=UserMinimal)
+@require_position_authentication(
+    [UserPosition.ADMIN, UserPosition.CEO, UserPosition.MANAGER]
+)
+async def edit_user_info(
+    user_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+    new_user_data: UserEditManager,
+):
+    if new_user_data.email:
+        email_owner = await get_user_by_email(session, new_user_data.email)
+        if email_owner:
+            if email_owner.id != user_id:
+                raise EmailAlreadyExistsException
+
+    edited_user = await update_user_data(session, user_id, new_user_data)
+    if edited_user is None:
+        raise UserNotFoundException
+
+    await set_key_to_cache(
+        USER_REDIS_KEY,
+        str(edited_user.id),
+        UserMinimal.model_validate(edited_user).model_dump_json(),
+        redis,
+    )
+
+    return edited_user
+
+
+@user_router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT)
+@require_position_authentication([UserPosition.ADMIN, UserPosition.CEO])
+async def delete_user(
+    user_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[Redis, Depends(get_redis)],
+):
+    user_to_delete = await get_user_by_id(session, user_id)
+    if not user_to_delete:
+        raise NotFoundException
+    if user_to_delete.fired_at is None:
+        raise NotAllowedToDeleteException
+    if user_to_delete.fired_at + timedelta(days=DAYS_TILL_DELETE) > date.today():
+        raise NotAllowedToDeleteException
+
+    await delete_user_by_object(session, user_to_delete)
+    await delete_key_from_cache(USER_REDIS_KEY, str(user_id), redis)

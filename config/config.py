@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     @property
     def redis_url(self):
-        return f'redis_service://{self.REDIS_HOST}:{self.REDIS_PORT}'
+        return f'redis://{self.REDIS_HOST}:{self.REDIS_PORT}'
 
     @property
     def db_test(self):

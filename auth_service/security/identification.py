@@ -8,24 +8,23 @@ from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.config import settings
-from exceptions.exceptions import (
+from config.constants import USER_REDIS_KEY
+from infrastructure.exceptions.auth_exceptions import (
     InvalidTokenException,
-    InvalidServiceSecretKey,
-    NotEnoughRights,
+    InvalidServiceSecretKeyException,
     TokenExpiredException,
     TokenNotFoundException,
     UserNotFoundException,
 )
-from crud.cache_repository import (
+from auth_service.crud.cache_repository import (
     get_key_from_cache,
     set_key_to_cache,
 )
 from auth_service.crud.sql_repository import get_user_by_id
-from infrastructure.models.user import UserPosition
-from infrastructure.schemas.user import UserOut
+from infrastructure.schemas.user import UserMinimal
 
 
-def check_jwt(authorization_header: str, secret_key: str):
+def check_jwt(authorization_header: str, secret_key: str) -> str:
     try:
         access_token = authorization_header.split(' ')[1]
         payload = jwt.decode(access_token, secret_key, algorithms=[settings.ALGORITHM])
@@ -44,58 +43,42 @@ def check_jwt(authorization_header: str, secret_key: str):
         raise InvalidTokenError
     if expiring_time < datetime.now(timezone.utc):
         raise TokenExpiredException
-    return payload
+
+    subject = payload.get('sub')
+    if subject is None:
+        raise InvalidTokenException
+
+    return subject
 
 
 def identificate_service(
     authorization_header: str,
 ) -> bool:
-    payload = check_jwt(authorization_header, settings.SERVICE_JWT_SECRET_KEY)
-
-    services_secret_key = payload.get('sub')
-    if (
-        services_secret_key is None
-        or services_secret_key != settings.SERVICES_COMMON_SECRET_KEY
-    ):
-        raise InvalidServiceSecretKey
+    services_secret_key = check_jwt(
+        authorization_header, settings.SERVICE_JWT_SECRET_KEY
+    )
+    if services_secret_key != settings.SERVICES_COMMON_SECRET_KEY:
+        raise InvalidServiceSecretKeyException
     return True
 
 
 async def identificate_user(
     authorization_header: str, session: AsyncSession, redis: Redis
-) -> Optional[UserOut]:
-    payload = check_jwt(authorization_header, settings.USER_JWT_SECRET_KEY)
+) -> Optional[UserMinimal]:
+    user_id = check_jwt(authorization_header, settings.USER_JWT_SECRET_KEY)
 
-    user_id = payload.get('sub')
-    if user_id is None:
-        raise InvalidTokenException
-
-    cached_user = await get_key_from_cache('user', user_id, redis)
+    cached_user = await get_key_from_cache(USER_REDIS_KEY, user_id, redis)
     if cached_user:
-        return UserOut.model_validate_json(cached_user)
+        return UserMinimal.model_validate_json(cached_user)
 
     user = await get_user_by_id(session, uuid.UUID(user_id))
     if user is None:
         raise UserNotFoundException
 
-    user_pydantic = UserOut.model_validate(user)
+    user_pydantic = UserMinimal.model_validate(user)
 
-    await set_key_to_cache('user', user_id, user_pydantic.model_dump_json(), redis)
+    await set_key_to_cache(
+        USER_REDIS_KEY, user_id, user_pydantic.model_dump_json(), redis
+    )
 
     return user_pydantic
-
-
-async def identify_user_and_check_role(
-    user_id: uuid.UUID,
-    user_authorization_header: str,
-    roles: list[UserPosition],
-    session: AsyncSession,
-    redis: Redis,
-) -> bool:
-    user = await identificate_user(user_authorization_header, session, redis)
-
-    if user.id != user_id:
-        if user.position not in roles:
-            raise NotEnoughRights
-
-    return True

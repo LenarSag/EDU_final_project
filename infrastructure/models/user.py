@@ -6,7 +6,6 @@ from uuid import uuid4
 from sqlalchemy import Enum as SQLEnum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-
 from infrastructure.models.base import Base
 from config.constants import (
     EMAIL_LENGTH,
@@ -22,6 +21,7 @@ class UserStatus(PyEnum):
 
 
 class UserPosition(PyEnum):
+    NONE = 'None'
     ADMIN = 'Admin'
     JUNIOR = 'Junior'
     DEVELOPER = 'Developer'
@@ -60,17 +60,21 @@ class User(Base):
     team_lead = relationship(
         'Team', back_populates='team_lead', foreign_keys='Team.team_lead_id'
     )
-    my_team_lead = relationship(
-        'User',
-        primaryjoin=('User.team_id == Team.id & Team.team_lead_id == User.id'),
-        secondary='teams',
-        foreign_keys='Team.team_lead_id',
-        # uselist=False,
-        # viewonly=True,
+    gotten_tasks = relationship(
+        'Task', back_populates='task_employee', foreign_keys='Task.employee_id'
+    )
+    assigned_tasks = relationship(
+        'Task', back_populates='task_manager', foreign_keys='Task.manager_id'
     )
 
+    meetings = relationship(
+        'Meeting', secondary='user_meeting_table', back_populates='participants'
+    )
+    created_events = relationship('CalendarEvent', back_populates='event_creator')
+    created_meetings = relationship('Meeting', back_populates='meeting_creator')
+
     def __repr__(self):
-        return f'<User {self.id} - {self.email}>'
+        return f'<User {self.id} - {self.email}, {self.first_name} {self.last_name}>'
 
     @property
     def is_rehirable(self):

@@ -9,30 +9,32 @@ from auth_service.crud.sql_repository import (
     create_new_user,
     get_user_by_email,
 )
-from db.sql_db import get_session
-from exceptions.exceptions import (
+from infrastructure.db.sql_db import get_session
+from infrastructure.exceptions.auth_exceptions import (
     EmailAlreadyExistsException,
     IncorrectEmailOrPasswordException,
-    InvalidServiceSecretKey,
+    InvalidServiceSecretKeyException,
 )
 from infrastructure.schemas.token import Token
 from infrastructure.schemas.user import (
     UserAuthentication,
     UserCreate,
-    UserOut,
+    UserBase,
 )
-from security.authentication import (
+from auth_service.security.authentication import (
     authenticate_user,
     create_access_token_for_user,
     create_internal_access_token,
 )
-from security.pwd_crypt import get_hashed_password
+from auth_service.security.pwd_crypt import get_hashed_password
 
 
 login_router = APIRouter()
 
 
-@login_router.post('/user', response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@login_router.post(
+    '/user', response_model=UserBase, status_code=status.HTTP_201_CREATED
+)
 async def create_user(
     user_data: UserCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -69,7 +71,7 @@ async def service_login_for_access_token(
         not authorization_header
         or authorization_header != settings.SERVICES_COMMON_SECRET_KEY
     ):
-        raise InvalidServiceSecretKey
+        raise InvalidServiceSecretKeyException
 
     access_token = create_internal_access_token()
     return Token(access_token=access_token, token_type='Bearer')
