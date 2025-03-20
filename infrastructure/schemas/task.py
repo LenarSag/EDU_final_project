@@ -24,7 +24,8 @@ class TaskCreate(BaseModel):
     @field_validator('due_date')
     @classmethod
     def is_future(cls, due_date: datetime) -> datetime:
-        if due_date < datetime.now(timezone.utc):
+        due_date = due_date.replace(tzinfo=None)
+        if due_date < datetime.now():
             raise ValueError(f'{due_date} cant be later than now')
         return due_date
 
@@ -40,7 +41,8 @@ class TaskEdit(BaseModel):
     @field_validator('due_date')
     @classmethod
     def is_future(cls, due_date: datetime) -> datetime:
-        if due_date and due_date < datetime.now(timezone.utc):
+        due_date = due_date.replace(tzinfo=None)
+        if due_date < datetime.now():
             raise ValueError(f'{due_date} cant be later than now')
         return due_date
 

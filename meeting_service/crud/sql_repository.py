@@ -135,10 +135,9 @@ async def update_meeting(
 
 
 async def delete_meeting_from_db(session: AsyncSession, meeting_to_delete: Meeting):
-    await session.execute(
-        delete(CalendarEvent).where(
-            CalendarEvent.id == meeting_to_delete.calendar_event_id
-        )
-    )
+    event_id = meeting_to_delete.calendar_event_id
     await session.delete(meeting_to_delete)
+    await session.flush()
+
+    await session.execute(delete(CalendarEvent).where(CalendarEvent.id == event_id))
     await session.commit()
