@@ -37,7 +37,7 @@ def require_position_authentication(position: list):
             if position and current_user.position not in position:
                 raise NotEnoughRightsException
 
-            args_list = [request, session, redis]
+            args_list = [request, background_tasks, session, redis]
             if team_id:
                 args_list.append(team_id)
             if new_task_data:

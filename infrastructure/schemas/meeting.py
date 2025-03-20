@@ -18,7 +18,10 @@ class MeetingCreate(BaseModel):
 
     @model_validator(mode='after')
     def check_times(self):
-        if self.start_time < datetime.now(timezone.utc):
+        self.start_time = self.start_time.replace(tzinfo=None)
+        self.end_time = self.end_time.replace(tzinfo=None)
+
+        if self.start_time < datetime.now():
             raise ValueError(f'{self.start_time} cannot be earlier than now.')
 
         if self.end_time < self.start_time:
@@ -41,7 +44,11 @@ class MeetingEdit(BaseModel):
 
     @model_validator(mode='after')
     def check_times(self):
-        if self.start_time < datetime.now(timezone.utc):
+        # Remove timezone info by making the datetime naive
+        self.start_time = self.start_time.replace(tzinfo=None)
+        self.end_time = self.end_time.replace(tzinfo=None)
+
+        if self.start_time < datetime.now():
             raise ValueError(f'{self.start_time} cannot be earlier than now.')
 
         if self.end_time < self.start_time:

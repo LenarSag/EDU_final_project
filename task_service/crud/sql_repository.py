@@ -146,10 +146,9 @@ async def update_task(
 
 
 async def delete_task_from_db(session: AsyncSession, task_to_delete: Task):
-    await session.execute(
-        delete(CalendarEvent).where(
-            CalendarEvent.id == task_to_delete.calendar_event_id
-        )
-    )
+    event_id = task_to_delete.calendar_event_id
     await session.delete(task_to_delete)
+    await session.flush()
+
+    await session.execute(delete(CalendarEvent).where(CalendarEvent.id == event_id))
     await session.commit()
