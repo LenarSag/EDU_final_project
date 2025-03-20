@@ -17,6 +17,9 @@ COPY ../../infrastructure /app/infrastructure
 # Copy start.sh
 COPY ../../start.sh /app/start.sh
 
+# Copy templates
+COPY ../../templates /app/templates
+
 # Copy alembic 
 COPY ../../alembic /app/alembic
 COPY ../../alembic.ini /app/alembic.ini
