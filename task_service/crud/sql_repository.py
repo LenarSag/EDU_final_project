@@ -93,7 +93,7 @@ async def check_task_exist(
     return result.scalar_one_or_none()
 
 
-async def create_task_for_empoloyee(
+async def create_task_for_employee(
     session: AsyncSession, new_task_data: TaskCreate, manager_id: UUID
 ):
     new_calendar_event = CalendarEvent(
@@ -121,7 +121,7 @@ async def update_task(
     session: AsyncSession, task_to_update: Task, new_task_data: TaskEdit
 ):
     for key, value in new_task_data.model_dump().items():
-        if value:
+        if value is not None:
             setattr(task_to_update, key, value)
 
     calendar_update_data = {

@@ -51,7 +51,7 @@ async def update_team(
     new_team_data_dict = new_team_data.model_dump()
     new_team_data_dict.pop('members')
     for key, value in new_team_data_dict.items():
-        if value:
+        if value is not None:
             setattr(team_to_update, key, value)
     if members:
         team_to_update.members = members

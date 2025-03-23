@@ -37,17 +37,5 @@ class Settings(BaseSettings):
     def redis_url(self):
         return f'redis://{self.REDIS_HOST}:{self.REDIS_PORT}'
 
-    @property
-    def db_test(self):
-        return 'sqlite+aiosqlite:///db.sqlite3'
-
-    @property
-    def redis_test(self):
-        return f'redis://localhost:{self.REDIS_PORT}'
-
-    model_config = SettingsConfigDict(
-        env_file='.env', env_file_encoding='utf-8', extra='allow'
-    )
-
 
 settings = Settings()

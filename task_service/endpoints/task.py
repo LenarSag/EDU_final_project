@@ -32,7 +32,7 @@ from infrastructure.schemas.task import (
 )
 from task_service.crud.sql_repository import (
     check_task_exist,
-    create_task_for_empoloyee,
+    create_task_for_employee,
     delete_task_from_db,
     get_all_employee_tasks,
     get_all_manager_tasks,
@@ -104,7 +104,7 @@ async def create_task(
     if task_exists is not None:
         raise TaskAlreadyExistsException
 
-    new_task = await create_task_for_empoloyee(session, new_task_data, current_user.id)
+    new_task = await create_task_for_employee(session, new_task_data, current_user.id)
 
     email = [user_to_execute_task.email]
     background_tasks.add_task(send_email, email, 'Notification', 'Task added')

@@ -2,9 +2,6 @@ volumes:
   db:
   redis_data:
 
-networks:
-  backend:
-
 services:
   db:
     image: postgres:17.2
@@ -14,7 +11,7 @@ services:
       - db:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    restart: always
+    restart: on-failure
 
   redis:
     image: redis:7
@@ -23,9 +20,7 @@ services:
       - redis_data:/data
     ports:
       - "6379:6379"
-    depends_on:
-      - db
-    restart: always
+    restart: on-failure
 
   auth_service:
     build:
@@ -33,9 +28,10 @@ services:
       dockerfile: auth_service/Dockerfile
     depends_on:
       - redis
+      - db
     env_file:
       - .env
-    restart: always
+    restart: on-failure
     ports:
       - "8001:8001"
 
@@ -46,9 +42,10 @@ services:
       dockerfile: calendar_service/Dockerfile
     depends_on:
       - redis
+      - db
     env_file:
       - .env
-    restart: always
+    restart: on-failure
     ports:
       - "8002:8002"
 
@@ -59,9 +56,10 @@ services:
       dockerfile: meeting_service/Dockerfile
     depends_on:
       - redis
+      - db
     env_file:
       - .env
-    restart: always
+    restart: on-failure
     ports:
       - "8003:8003"
 
@@ -72,9 +70,10 @@ services:
       dockerfile: task_service/Dockerfile
     depends_on:
       - redis
+      - db
     env_file:
       - .env
-    restart: always
+    restart: on-failure
     ports:
       - "8004:8004"
 
@@ -85,9 +84,10 @@ services:
       dockerfile: team_service/Dockerfile
     depends_on:
       - redis
+      - db
     env_file:
       - .env
-    restart: always
+    restart: on-failure
     ports:
       - "8005:8005"
 
@@ -104,7 +104,7 @@ services:
       - meeting_service
       - task_service
       - team_service
-    restart: always
+    restart: on-failure
 
 
 
