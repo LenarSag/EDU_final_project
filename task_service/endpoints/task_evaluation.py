@@ -57,7 +57,7 @@ async def get_evaluation(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
-    task_id: Annotated[int, Path(..., review='The id of the task')],
+    task_id: Annotated[int, Path(..., description='The id of the task')],
     current_user=None,
 ):
     task = await get_task_by_id(session, task_id)
@@ -86,7 +86,7 @@ async def create_task_evaluation(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
-    task_id: Annotated[int, Path(..., review='The id of the task')],
+    task_id: Annotated[int, Path(..., description='The id of the task')],
     new_task_eval_data: TaskEvaluationCreate,
     current_user=None,
 ):
@@ -116,7 +116,7 @@ async def edit_task_evaluation(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
-    task_id: Annotated[int, Path(..., review='The id of the task')],
+    task_id: Annotated[int, Path(..., description='The id of the task')],
     new_task_eval_data: TaskEvaluationCreate,
     current_user=None,
 ):
@@ -145,7 +145,7 @@ async def delete_task_evaluation(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     redis: Annotated[Redis, Depends(get_redis)],
-    task_id: Annotated[int, Path(..., review='The id of the task')],
+    task_id: Annotated[int, Path(..., description='The id of the task')],
     new_task_eval_data: TaskEvaluationCreate,
     current_user=None,
 ):

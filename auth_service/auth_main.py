@@ -39,13 +39,3 @@ admin.add_view(UserAdmin)
 @app.on_event('startup')
 async def on_startup():
     await init_models()
-
-
-# if __name__ == '__main__':
-#     asyncio.run(init_models())
-#     uvicorn.run(
-#         'auth_main:app',
-#         host='127.0.0.1',
-#         port=8001,
-#         reload=True,
-#     )

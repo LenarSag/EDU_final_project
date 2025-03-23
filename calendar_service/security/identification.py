@@ -62,7 +62,7 @@ def identificate_service(
     return True
 
 
-async def identificate_user(
+async def identify_user(
     authorization_header: str, session: AsyncSession, redis: Redis
 ) -> Optional[UserMinimal]:
     user_id = check_jwt(authorization_header, settings.USER_JWT_SECRET_KEY)

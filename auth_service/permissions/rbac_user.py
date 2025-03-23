@@ -1,16 +1,29 @@
 from functools import wraps
+from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, Request
+from fastapi_pagination import Params
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service.security.identification import identificate_service, identificate_user
+from auth_service.security.identification import identify_user
 from infrastructure.db.redis_db import get_redis
 from infrastructure.db.sql_db import get_session
 from infrastructure.exceptions.auth_exceptions import NotEnoughRightsException
-from config.constants import SERVICE_AUTH_HEADER, USER_AUTH_HEADER
+from config.constants import USER_AUTH_HEADER
 from infrastructure.models.user import UserStatus
+from infrastructure.schemas.user import UserEditManager, UserEditSelf, UserMinimal
+
+
+async def get_current_user(request: Request, session: AsyncSession, redis: Redis):
+    user_authorization_header = request.headers.get(USER_AUTH_HEADER)
+    if not user_authorization_header:
+        raise NotEnoughRightsException
+    current_user = await identify_user(user_authorization_header, session, redis)
+    if current_user.status != UserStatus.ACTIVE:
+        raise NotEnoughRightsException
+    return current_user
 
 
 def require_position_authentication(positions: list):
@@ -21,30 +34,14 @@ def require_position_authentication(positions: list):
             request: Request,
             session: AsyncSession = Depends(get_session),
             redis: Redis = Depends(get_redis),
-            new_user_data=None,
+            new_user_data: Optional[UserEditManager] = None,
         ):
-            user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-            service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
-
-            if user_authorization_header:
-                current_user = await identificate_user(
-                    user_authorization_header, session, redis
-                )
-
-                if current_user.status != UserStatus.ACTIVE:
-                    raise NotEnoughRightsException
-                if positions and current_user.position not in positions:
-                    raise NotEnoughRightsException
-
-            elif service_authorization_header:
-                permission = identificate_service(service_authorization_header)
-                if not permission:
-                    raise NotEnoughRightsException
-            else:
+            current_user = await get_current_user(request, session, redis)
+            if positions and current_user.position not in positions:
                 raise NotEnoughRightsException
 
             args_list = [user_id, request, session, redis]
-            if new_user_data:
+            if new_user_data is not None:
                 args_list.append(new_user_data)
             return await func(*args_list)
 
@@ -59,35 +56,16 @@ def require_authentication(func):
         request: Request,
         session: AsyncSession = Depends(get_session),
         redis: Redis = Depends(get_redis),
-        params=None,
-        user_id=None,
+        params: Optional[Params] = None,
+        user_id: Optional[UUID] = None,
     ):
-        user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-        service_authorization_header = request.headers.get(SERVICE_AUTH_HEADER)
-
-        current_user = None
-
-        if user_authorization_header:
-            current_user = await identificate_user(
-                user_authorization_header, session, redis
-            )
-
-        elif service_authorization_header:
-            permission = identificate_service(service_authorization_header)
-            if not permission:
-                raise NotEnoughRightsException
-
-        else:
-            raise NotEnoughRightsException
-
-        if current_user and current_user.status != UserStatus.ACTIVE:
-            raise NotEnoughRightsException
+        await get_current_user(request, session, redis)
 
         args_list = [request, session, redis]
 
-        if params:
+        if params is not None:
             args_list.append(params)
-        if user_id:
+        if user_id is not None:
             args_list.append(user_id)
 
         return await func(*args_list)
@@ -101,22 +79,14 @@ def require_user_authentication(func):
         request: Request,
         session: AsyncSession = Depends(get_session),
         redis: Redis = Depends(get_redis),
-        new_user_data=None,
-        current_user=None,
+        new_user_data: Optional[UserEditSelf] = None,
+        current_user: Optional[UserMinimal] = None,
     ):
-        user_authorization_header = request.headers.get(USER_AUTH_HEADER)
-        if not user_authorization_header:
-            raise NotEnoughRightsException
-
-        current_user = await identificate_user(
-            user_authorization_header, session, redis
-        )
-        if current_user.status != UserStatus.ACTIVE:
-            raise NotEnoughRightsException
+        current_user = await get_current_user(request, session, redis)
 
         args_list = [request, session, redis]
 
-        if new_user_data:
+        if new_user_data is not None:
             args_list.append(new_user_data)
         args_list.append(current_user)
 
